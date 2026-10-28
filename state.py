@@ -4,7 +4,7 @@
 # ======================
 
 import threading
-from helpers import debug_print, DEBUG
+from helpers import configure_debug, debug_print
 
 # ======================
 # Constantes
@@ -52,45 +52,42 @@ films = [
 lock = threading.Lock()
 # ======================
 
-def init_state(server_id: int, server_ip: str, server_tcp_port: int,
-               debug: bool, initial_leader_id: int, initial_peer_servers: dict) -> None:
-    global SERVER_ID, SERVER_IP, SERVER_TCP_PORT, DEBUG
+def init_state(server_id: str, server_ip: str, server_tcp_port: int,
+               debug: bool, initial_leader_id: str, initial_peer_servers: dict) -> None:
+    global SERVER_ID, SERVER_IP, SERVER_TCP_PORT
     global leader_id, peer_servers
 
     with lock:
         SERVER_ID = server_id
         SERVER_IP = server_ip
         SERVER_TCP_PORT = server_tcp_port
-        DEBUG = debug
-        leader_id = initial_leader_id
-        peer_servers = initial_peer_servers
+        configure_debug(debug, server_id)
+        leader_id = str(initial_leader_id)
+        peer_servers = initial_peer_servers.copy()
     
     debug_print(f"Estado inicializado")
 
 
-def set_leader(new_leader_id: int) -> None:
+def set_leader(new_leader_id: str) -> None:
     global leader_id
 
     with lock:
-        leader_id = new_leader_id
+        leader_id = str(new_leader_id)
 
     debug_print(f"Líder atualizado para: {new_leader_id}")
 
 
-def get_leader() -> int:
-    global leader_id
+def get_leader() -> str:
     with lock:
         return leader_id
 
 
 def is_leader() -> bool:
-    global SERVER_ID, leader_id
     with lock:
         return SERVER_ID == leader_id
 
 
 def get_peer_servers() -> dict:
-    global peer_servers
     with lock:
         return peer_servers.copy()
 
@@ -102,12 +99,10 @@ def set_peer_servers(new_peer_servers: dict) -> None:
         peer_servers = new_peer_servers.copy()
 
 def get_films() -> list:
-    global films
     with lock:
         return films.copy()
 
 def add_review(film_id: int, review: dict) -> bool:
-    global films
     with lock:
         for film in films:
             if film["id"] == film_id:

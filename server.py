@@ -3,11 +3,12 @@
 # Modificado em 25/10/26
 # ======================
 
-import sys
+import json
 import state
 import threading
 import socket
-from helpers import read_config, debug_print, DEBUG
+import argparse
+from helpers import configure_debug, read_config, debug_print
 
 # ======================
 
@@ -34,6 +35,8 @@ def start_udp_multicast(multicast_config: dict) -> None:
         state.debug_print(f"Mensagem recebida de {address}: {data.decode()}")
         response = process_client_message(data.decode("utf-8"), address)
 
+        request = json.loads(data.decode("utf-8"))
+        state.debug_print(f"Processando mensagem do cliente {address}: {request}, resposta: {response}")
         if response:
             sock.sendto(json.dumps(response).encode("utf-8"), address)
 
@@ -85,6 +88,7 @@ def process_client_message(message: str, address: tuple):
     request = json.loads(message)
 
     if not state.is_leader():
+        debug_print(f"Servidor não é líder. Ignorando mensagem do cliente {address}")
         return
 
     operation = request.get("operation")
@@ -93,19 +97,20 @@ def process_client_message(message: str, address: tuple):
     if operation == "LIST":
         films = state.get_films()
         response = {"status": "OK", "films": films}
-        send_to_client(response, address)
-    elif operation == "ADD_REVIEW":
+        return response
+
+    if operation == "ADD_REVIEW":
         film_id = request.get("film_id")
         review = request.get("review")
         success = state.add_review(film_id, review)
         if not success:
             response = {"status": "ERROR", "message": f"Erro ao adicionar review ao filme {film_id}"}
-        else:
-            response = {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
-        send_to_client(response, address)
-    else:
-        response = {"status": "ERROR", "message": "Operação desconhecida"}
-
+            return response
+        
+        response = {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
+        return response
+    
+    response = {"status": "ERROR", "message": "Operação desconhecida"}
     return response
 
 
@@ -121,14 +126,17 @@ def main() -> None:
     """
     Função principal do servidor.
     """
-    # Coleta os argumentos da linha de comando
-    if (len(sys.argv) != 4):
-        print("Uso: python server.py <debug> <id> <config>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Servidor multicast")
+    parser.add_argument("-d", "--debug", action="store_true", help="ativa as mensagens de debug")
+    parser.add_argument("server_id", help="identificador do servidor")
+    parser.add_argument("config_path", help="caminho para o arquivo config.toml")
+    args = parser.parse_args()
 
-    server_id = sys.argv[2]
-    config = read_config(sys.argv[3])
+    debug_enabled = args.debug
+    server_id = args.server_id
+    config = read_config(args.config_path)
     multicast_config = config["multicast"]
+    configure_debug(debug_enabled, server_id)
 
     # Coleta os servidores
     servers_config = {
@@ -143,8 +151,8 @@ def main() -> None:
         server_id=server_id,
         server_ip=servers_config[str(server_id)]["ip"],
         server_tcp_port=servers_config[str(server_id)]["tcp_port"],
-        debug=DEBUG,
-        initial_leader_id=multicast_config["leader_id"],
+        debug=debug_enabled,
+        initial_leader_id=str(multicast_config["leader_id"]),
         initial_peer_servers={k: v for k, v in servers_config.items() if k != server_id}
     )
 
@@ -156,6 +164,7 @@ def main() -> None:
             threading.Event().wait(1)
     except KeyboardInterrupt:
         print("Shutting down server...")
+        shutdown()
 
 if __name__ == "__main__":
     main()

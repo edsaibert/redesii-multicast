@@ -4,9 +4,10 @@
 # Modificado em 25/10/26
 # ======================
 
-import sys
+import json
 import socket
-from helpers import read_config, debug_print, DEBUG
+import argparse
+from helpers import configure_debug, read_config, debug_print
 
 TIMEOUT_SEGUNDOS = 5
 MULTICAST_GROUP = None
@@ -14,7 +15,7 @@ MULTICAST_PORT = None
 
 # ======================
 
-def request_films() -> None:
+def request_films(sock: socket.socket) -> None:
     """
     Solicita a lista de filmes ao servidor.
     """
@@ -24,7 +25,7 @@ def request_films() -> None:
     request_msg = json.dumps(request).encode("utf-8")
     sock.sendto(request_msg, (MULTICAST_GROUP, MULTICAST_PORT))
 
-def add_review(film_id: int, review: str) -> None:
+def add_review(sock: socket.socket, film_id: int, review: str) -> None:
     """
     Adiciona uma avaliação a um filme específico.
     """
@@ -36,7 +37,7 @@ def add_review(film_id: int, review: str) -> None:
     request_msg = json.dumps(request).encode("utf-8")
     sock.sendto(request_msg, (MULTICAST_GROUP, MULTICAST_PORT))
 
-def wait_for_response() -> None:
+def wait_for_response(sock: socket.socket) -> None:
     """
     Aguarda a resposta do servidor.
     """
@@ -46,16 +47,20 @@ def wait_for_response() -> None:
         debug_print(f"Resposta recebida: {response}")
     except socket.timeout:
         debug_print("Tempo limite de espera pela resposta do servidor.")
-    finally:
-        sock.close()
+    # finally:
+    #     sock.close()
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print("Uso: python client.py <caminho_para_config.toml>")
-        sys.exit(1)
+    global MULTICAST_GROUP, MULTICAST_PORT
 
-    config_path = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Cliente multicast")
+    parser.add_argument("-d", "--debug", action="store_true", help="ativa as mensagens de debug")
+    parser.add_argument("config_path", help="caminho para o arquivo config.toml")
+    args = parser.parse_args()
+
+    configure_debug(args.debug)
+    config_path = args.config_path
     config = read_config(config_path)
 
     MULTICAST_GROUP = config["multicast"]["group"]
@@ -77,3 +82,6 @@ def main() -> None:
     review = "Ótimo filme!"  
     add_review(sock, film_id, review)
     wait_for_response(sock)
+
+if __name__ == "__main__":
+    main()
