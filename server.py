@@ -40,11 +40,33 @@ def start_udp_multicast(multicast_config: dict) -> None:
         if response:
             sock.sendto(json.dumps(response).encode("utf-8"), address)
 
+def handle_tcp_message(client: socket.socket) -> None:
+    """
+    Trata uma conexao TCP
+    """
 
-def start_tcp():
+    data, address = client.recvfrom(4096)
+
+    # implementar: logica de tratar uma mensagem TCP recebida
+    # exemplo: atualizar dado
+
+    shutdown(client)
+
+def start_tcp(server_config: dict) -> None:
     """
     Inicia o servidor TCP.
     """
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((server_config["ip"], server_config["tcp_port"]))
+
+    sock.listen(5)
+
+    while True:
+        client, addr = sock.accept()
+
+        client_handler = threading.Thread(target = handle_tcp_message, args = (client,))
+        client_handler.start();
 
     pass
 
@@ -114,10 +136,16 @@ def process_client_message(message: str, address: tuple):
     return response
 
 
-def shutdown():
+def shutdown(sock: socket.socket, warn: bool = False) -> None:
     """
     Encerra o servidor.
     """
+    
+    try:
+        if (warn):
+            sock.shutdown(socket.SHUT_RDWR)
+    finally:
+        sock.close()
 
     pass
 
