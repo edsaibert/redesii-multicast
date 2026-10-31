@@ -98,6 +98,14 @@ def set_peer_servers(new_peer_servers: dict) -> None:
     with lock:
         peer_servers = new_peer_servers.copy()
 
+
+def remove_peer_server(server_id: str) -> None:
+    global peer_servers
+
+    with lock:
+        peer_servers.pop(server_id)
+
+
 def get_films() -> list:
     with lock:
         return films.copy()

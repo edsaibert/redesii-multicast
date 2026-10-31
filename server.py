@@ -40,6 +40,8 @@ def start_udp_multicast(multicast_config: dict) -> None:
         if response:
             sock.sendto(json.dumps(response).encode("utf-8"), address)
 
+# Tratamento de TCP
+
 def handle_tcp_message(client: socket.socket) -> None:
     """
     Trata uma conexao TCP
@@ -47,8 +49,13 @@ def handle_tcp_message(client: socket.socket) -> None:
 
     data, address = client.recvfrom(4096)
 
-    # implementar: logica de tratar uma mensagem TCP recebida
-    # exemplo: atualizar dado
+    state.debug_print(f"Mensagem recebida de {address}: {data.decode()}")
+    request = json.loads(data.decode("utf-8"))
+
+    state.debug_print(f"Processando mensagem do servidor {address}: {request}, resposta: {response}")
+    response = process_server_message(request, address)
+    if response:
+        sock.sendto(json.dumps(response).encode("utf-8"), address)
 
     shutdown(client)
 
@@ -62,45 +69,141 @@ def start_tcp(server_config: dict) -> None:
 
     sock.listen(5)
 
+    state.debug_print(f"Servidor {SERVER_ID} : servidor TCP iniciado")
     while True:
         client, addr = sock.accept()
 
         client_handler = threading.Thread(target = handle_tcp_message, args = (client,))
         client_handler.start();
 
-    pass
-
-
-def connect_to_servers():
+def connect_to_servers(target_host: str, target_port: int):
     """
     Conecta-se aos servidores vizinhos.
     """
 
-    pass
+    state.debug_print(f"Iniciando conexão com servidor {target_host}: porta {target_port}")
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    client.connect((target_host, target_port))
 
-def heartbeat(multicast_config: dict):
+    return client
+
+# Heartbeat
+
+def heartbeat(servers_config: dict, time_sec: int):
     """
     Envia um heartbeat para os outros servidores.
     """
     
-    pass
+    request = {
+        "operation": "HEARTBEAT",
+        "server_id": str(SERVER_ID),
+    }
 
+    request_msg = json.dumps(request).encode("utf-8")
+
+    while True:
+        time.sleep(time_sec)
+
+        for v, k in servers_config:
+            state.debug_print(f"Iniciando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["port"]}")
+            sock = connect_to_servers(k["ip"], k["port"])
+
+            sock.send(request_msg)
+            state.debug_print(f"Encerrando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["port"]}")
+            shutdown(sock)
+
+def process_heartbeat(heartbeat_server_id: int) -> bool:
+    """
+    Processa o recebimento de um heartbeat
+    """
+
+    with lock:
+        state.debug_print(f"Processando Heartbeat do servidor de id {heartbeat_server_id}")
+        if (heartbeat_server_id == SERVER_ID):
+            return True
+
+        server = peer_servers[str(heartbeat_server_id)]
+        if (server["heartbeats_to_die"] <= 0):
+            return False
+
+        server["heartbeats_to_die"] = config["failure_t"]
+        return True
+
+def discount_heartbeat(time_sec: int) -> None:
+    """
+    Reduz a quantidade de heartbeats necessarios para os servidores serem considerados mortos e remove os mortos
+    """
+
+    while True:
+        time.sleep(time_sec)
+        peers_to_remove = []
+
+        with lock:
+            peers = get_peer_servers()
+            for k,v in peers:
+                v["heartbeats_to_die"]--
+                if v["heartbeats_to_die"] <= 0:
+                    peers_to_remove.append(k)
+
+            leader_removed = False
+            for k in peers_to_remove:
+                if (k == leader_id):
+                    leader_removed = True
+
+                state.debug_print(f"Servidor de id {k} irresponsivo, removendo ele da lista de peers")
+                remove_peer_server(k)
+            
+            if leader_removed:
+                elect_leader()
+
+# Eleicao de lider
 
 def elect_leader():
     """
     Inicia o processo de eleição do líder.
     """
 
-    pass
+    peer = get_peer_servers()
+    leader = SERVER_ID
 
+    for (v in peer):
+        if (int(v) < int(leader)):
+            leader = v
 
-def process_server_message():
+    state.debug_print(f"Elegendo como líder o servidor de id {leader}")
+    set_leader(leader)
+
+# Processamento de mensagens
+
+def process_server_message(message: str, address: tuple):
     """
     Processa mensagens recebidas de outros servidores.
     """
 
-    pass
+    request = json.loads(message)
+
+    operation = message.get("operation")
+    response = {}
+
+    if operation == "ADD_REVIEW":
+        film_id = request.get("film_id")
+        review = request.get("review")
+        success = state.add_review(film_id, review)
+
+        if not success:
+            response = {"status": "ERROR", "message": f"Erro ao adicionar review ao filme {film_id}"}
+            return response
+        
+        response = {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
+        return response
+
+    if operation == "HEARTBEAT":
+        heartbeat_server_id = request.get("server_id")
+        process_heartbeat(heartbeat_server_id)
+
+    response = {"status": "ERROR", "message": "Operação desconhecida"}
+    return response
 
 
 def process_client_message(message: str, address: tuple):
@@ -135,6 +238,7 @@ def process_client_message(message: str, address: tuple):
     response = {"status": "ERROR", "message": "Operação desconhecida"}
     return response
 
+# Encerramento de socket
 
 def shutdown(sock: socket.socket, warn: bool = False) -> None:
     """
@@ -171,6 +275,7 @@ def main() -> None:
         str(server_id): {
             "ip": server_config["ip"],
             "tcp_port": server_config["tcp_port"],
+            "heartbeats_to_die": config["failure_t"],
         }
         for server_id, server_config in config["servers"].items()
     }
@@ -186,6 +291,8 @@ def main() -> None:
 
     # Inicia os threads para UDP, TCP e heartbeat
     threading.Thread(target=start_udp_multicast, args=(multicast_config,), daemon=True).start()
+    threading.Thread(target=start_tcp, args=(servers_config,), daemon=True).start()
+    threading.Thread(target=discount_heartbeat, args=(config["heartbeat_t"],), daemon=True).start()
 
     try:
         while True:
