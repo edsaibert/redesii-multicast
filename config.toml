@@ -1,6 +1,7 @@
 # ======================
 # Eduarda Saibert - 20232368
-# Modificado em 25/10/26
+# Eduardo Munaretto Majczak - 20242288
+# Modificado em 31/10/26
 # ======================
 
 [multicast]
@@ -12,25 +13,27 @@ port=6000
 interface="192.168.0.8"
 
 heartbeat_t = 1.0
-failure_t = 5.0
+failure_t = 5
 
 # ======================
 # Configurações Relacionadas aos Servidores
 
-[servers.1]
-ip="127.0.0.1"
-tcp_port=5001
+[servers]
 
-[servers.2]
-ip="127.0.0.1"
-tcp_port=5002
+    [servers.1]
+    ip="127.0.0.1"
+    tcp_port=5001
 
-[servers.3]
-ip="127.0.0.1"
-tcp_port=5003
+    [servers.2]
+    ip="127.0.0.1"
+    tcp_port=5002
 
-[servers.4]
-ip="127.0.0.1"
-tcp_port=5004
+    [servers.3]
+    ip="127.0.0.1"
+    tcp_port=5003
+
+    [servers.4]
+    ip="127.0.0.1"
+    tcp_port=5004
 
 # ======================

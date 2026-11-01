@@ -1,6 +1,7 @@
 # ======================
 # Eduarda Saibert - 20232368
-# Modificado em 25/10/26
+# Eduardo Munaretto Majczak - 20242288
+# Modificado em 31/10/26
 # ======================
 
 import threading
@@ -97,6 +98,14 @@ def set_peer_servers(new_peer_servers: dict) -> None:
 
     with lock:
         peer_servers = new_peer_servers.copy()
+
+
+def remove_peer_server(server_id: str) -> None:
+    global peer_servers
+
+    with lock:
+        peer_servers.pop(server_id)
+
 
 def get_films() -> list:
     with lock:
