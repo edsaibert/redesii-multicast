@@ -1,6 +1,7 @@
 # ======================
 # Eduarda Saibert - 20232368
-# Modificado em 25/10/26
+# Eduardo Munaretto Majczak - 20242288
+# Modificado em 02/11/26
 # ======================
 
 from datetime import datetime
