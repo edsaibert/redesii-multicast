@@ -39,11 +39,11 @@ def start_udp_multicast(multicast_config: dict) -> None:
     while True:
         data, address = sock.recvfrom(4096)
         state.debug_print(f"Mensagem recebida de {address}: {data.decode()}")
-        response = process_client_message(data.decode("utf-8"), address)
+        response = process_client_message(data.decode("utf-8"), address)    
 
         request = json.loads(data.decode("utf-8"))
         state.debug_print(f"Processando mensagem do cliente {address}: {request}, resposta: {response}")
-        if response:
+        if response:    
             sock.sendto(json.dumps(response).encode("utf-8"), address)
 
 # Tratamento de TCP
@@ -53,15 +53,14 @@ def handle_tcp_message(client: socket.socket) -> None:
     Trata uma conexao TCP
     """
 
-    data, address = client.recvfrom(4096)
+    data = client.recv(4096)
 
-    state.debug_print(f"Mensagem recebida de {address}: {data.decode()}")
-    request = json.loads(data.decode("utf-8"))
+    if data:
+        state.debug_print(f"Mensagem recebida de: {data}")
+        request = json.loads(data.decode("utf-8"))
 
-    state.debug_print(f"Processando mensagem do servidor {address}: {request}, resposta: {response}")
-    response = process_server_message(request, address)
-    if response:
-        socket.sendto(json.dumps(response).encode("utf-8"), address)
+        state.debug_print(f"Processando mensagem do servidor: {request}, resposta: {request}")
+        process_server_message(request)
 
     shutdown(client)
 
@@ -75,7 +74,7 @@ def start_tcp(server_config: dict) -> None:
 
     sock.listen(5)
 
-    state.debug_print(f"Servidor {get_server_id()} : servidor TCP iniciado")
+    state.debug_print(f"Servidor {get_server_id()}: servidor TCP iniciado")
     while True:
         client, addr = sock.accept()
 
@@ -90,9 +89,12 @@ def connect_to_servers(target_host: str, target_port: int):
     state.debug_print(f"Iniciando conexão com servidor {target_host}: porta {target_port}")
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    client.connect((target_host, target_port))
-
-    return client
+    while (True):
+        try:
+            client.connect((target_host, target_port))
+            return client
+        except:
+            continue
 
 # Heartbeat
 
@@ -111,15 +113,18 @@ def heartbeat(servers_config: dict, time_sec: int):
     while True:
         time.sleep(time_sec)
 
-        for v, k in servers_config:
-            state.debug_print(f"Iniciando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["port"]}")
-            sock = connect_to_servers(k["ip"], k["port"])
+        server_id = get_server_id()
+        for v in servers_config:
+            if (v != server_id):
+                k = get_peer_servers()[v]
+                state.debug_print(f"Iniciando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
+                sock = connect_to_servers(k["ip"], k["tcp_port"])
 
-            sock.send(request_msg)
-            state.debug_print(f"Encerrando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["port"]}")
-            shutdown(sock)
+                sock.send(request_msg)  
+                state.debug_print(f"Encerrando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
+                shutdown(sock)
 
-def process_heartbeat(heartbeat_server_id: int, failure_t: int) -> bool:
+def process_heartbeat(heartbeat_server_id: int) -> bool:
     """
     Processa o recebimento de um heartbeat
     """
@@ -129,7 +134,8 @@ def process_heartbeat(heartbeat_server_id: int, failure_t: int) -> bool:
         if (heartbeat_server_id == get_server_id()):
             return True
 
-        server = peer_servers[str(heartbeat_server_id)]
+        peer = get_peer_servers()
+        server = peer[str(heartbeat_server_id)]
         if (server["heartbeats_to_die"] <= 0):
             return False
 
@@ -183,19 +189,17 @@ def elect_leader():
 
 # Processamento de mensagens
 
-def process_server_message(message: str, address: tuple):
+def process_server_message(message: str):
     """
     Processa mensagens recebidas de outros servidores.
     """
-
-    request = json.loads(message)
 
     operation = message.get("operation")
     response = {}
 
     if operation == "ADD_REVIEW":
-        film_id = request.get("film_id")
-        review = request.get("review")
+        film_id = message.get("film_id")
+        review = message.get("review")
         success = state.add_review(film_id, review)
 
         if not success:
@@ -206,7 +210,7 @@ def process_server_message(message: str, address: tuple):
         return response
 
     if operation == "HEARTBEAT":
-        heartbeat_server_id = request.get("server_id")
+        heartbeat_server_id = message.get("server_id")
         process_heartbeat(heartbeat_server_id)
 
     response = {"status": "ERROR", "message": "Operação desconhecida"}
@@ -302,6 +306,7 @@ def main() -> None:
     # Inicia os threads para UDP, TCP e heartbeat
     # threading.Thread(target=start_udp_multicast, args=(multicast_config,), daemon=True).start()
     threading.Thread(target=start_tcp, args=(servers_config[get_server_id()] ,), daemon=True).start()
+    threading.Thread(target=heartbeat, args=(servers_config, config["heartbeat_t"], ), daemon=True).start()
     threading.Thread(target=discount_heartbeat, args=(config["heartbeat_t"], ), daemon=True).start()
 
     try:
@@ -309,7 +314,6 @@ def main() -> None:
             threading.Event().wait(1)
     except KeyboardInterrupt:
         print("Shutting down server...")
-        shutdown()
 
 if __name__ == "__main__":
     main()
