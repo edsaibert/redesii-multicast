@@ -10,6 +10,7 @@ import json
 import state
 import threading
 import socket
+import application
 import argparse
 from state import set_leader, get_peer_servers, peer_servers, remove_peer_server, get_server_id, get_leader
 from helpers import configure_debug, read_config, debug_print
@@ -47,7 +48,6 @@ def start_udp_multicast(multicast_config: dict) -> None:
             sock.sendto(json.dumps(response).encode("utf-8"), address)
 
 # Tratamento de TCP
-
 def handle_tcp_message(client: socket.socket) -> None:
     """
     Trata uma conexao TCP
@@ -300,9 +300,9 @@ def main() -> None:
     )
 
     # Inicia os threads para UDP, TCP e heartbeat
-    # threading.Thread(target=start_udp_multicast, args=(multicast_config,), daemon=True).start()
-    threading.Thread(target=start_tcp, args=(servers_config[get_server_id()] ,), daemon=True).start()
-    threading.Thread(target=discount_heartbeat, args=(config["heartbeat_t"], ), daemon=True).start()
+    threading.Thread(target=start_udp_multicast, args=(multicast_config,), daemon=True).start()
+    # threading.Thread(target=start_tcp, args=(servers_config[get_server_id()] ,), daemon=True).start()
+    # threading.Thread(target=discount_heartbeat, args=(config["heartbeat_t"], ), daemon=True).start()
 
     try:
         while True:

@@ -51,7 +51,7 @@ MULTICAST_PORT = None
 #     # finally:
 #     #     sock.close()
 
-def client_interface() -> None:
+def client_interface(sock: socket.socket) -> None:
     """
     Monta uma interface CLI para teste do cliente.
     """
@@ -69,14 +69,20 @@ def client_interface() -> None:
         if choice == "1":
             # Solicita a lista de filmes
             res = application.get(sock, None, MULTICAST_GROUP, MULTICAST_PORT)
-            pass
+            if (not res):
+                debug_print("Não foi possível obter resposta a requisição.")
+                break
+            print(f"{res}")
         elif choice == "2":
             os.system('clear')
             print("Digite o ID do filme:")
             film_id = int(input())
-            application.get(sock, film_id, MULTICAST_GROUP, MULTICAST_PORT)
+            debug_print(f"{MULTICAST_GROUP}, {MULTICAST_PORT}")
+            res = application.get(sock, film_id, MULTICAST_GROUP, MULTICAST_PORT)
+            if (res == -1):
+                debug_print("Não foi possível obter resposta a requisição.")
+                break
             # Solicita detalhes de um filme específico
-            pass
         elif choice == "3":
             os.system('clear')
             # Adiciona uma avaliação a um filme específico
@@ -86,8 +92,10 @@ def client_interface() -> None:
             os.system('clear')
             print("Digite a avaliação:")
             review = input()
-            application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
-            pass
+            res = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
+            if (res == -1):
+                debug_print("Não foi possível obter resposta a requisição.")
+                break
         elif choice == "0":
             # Sai do cliente
             os.system('clear')
@@ -114,7 +122,8 @@ def main() -> None:
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
     sock.bind(("", 0))
 
-    client_interface()
+    if (not sock): debug_print("Não foi possível se conectar ao socket.")
+    client_interface(sock)
 
 if __name__ == "__main__":
     main()
