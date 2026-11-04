@@ -4,6 +4,9 @@
 # Modificado em 31/10/26
 # ======================
 
+heartbeat_t = 1
+failure_t = 5
+
 [multicast]
 # Configurações Gerais do Cluster
 
@@ -11,9 +14,6 @@ leader_id=1
 group="239.1.1.1"
 port=6000
 interface="192.168.0.8"
-
-heartbeat_t = 1.0
-failure_t = 5
 
 # ======================
 # Configurações Relacionadas aos Servidores
