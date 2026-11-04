@@ -4,52 +4,93 @@
 # Modificado em 25/10/26
 # ======================
 
-import json
+import os
 import socket
 import argparse
+import application
 from helpers import configure_debug, read_config, debug_print
 
-TIMEOUT_SEGUNDOS = 5
 MULTICAST_GROUP = None
 MULTICAST_PORT = None
 
 # ======================
 
-def request_films(sock: socket.socket) -> None:
-    """
-    Solicita a lista de filmes ao servidor.
-    """
-    request = {
-        "operation": "LIST"
-    }
-    request_msg = json.dumps(request).encode("utf-8")
-    sock.sendto(request_msg, (MULTICAST_GROUP, MULTICAST_PORT))
+# def request_films(sock: socket.socket) -> None:
+#     """
+#     Solicita a lista de filmes ao servidor.
+#     """
+#     request = {
+#         "operation": "LIST"
+#     }
+#     request_msg = json.dumps(request).encode("utf-8")
+#     sock.sendto(request_msg, (MULTICAST_GROUP, MULTICAST_PORT))
 
-def add_review(sock: socket.socket, film_id: int, review: str) -> None:
-    """
-    Adiciona uma avaliação a um filme específico.
-    """
-    request = {
-        "operation": "ADD_REVIEW",
-        "film_id": film_id,
-        "review": review
-    }
-    request_msg = json.dumps(request).encode("utf-8")
-    sock.sendto(request_msg, (MULTICAST_GROUP, MULTICAST_PORT))
+# def add_review(sock: socket.socket, film_id: int, review: str) -> None:
+#     """
+#     Adiciona uma avaliação a um filme específico.
+#     """
+#     request = {
+#         "operation": "ADD_REVIEW",
+#         "film_id": film_id,
+#         "review": review
+#     }
+#     request_msg = json.dumps(request).encode("utf-8")
+#     sock.sendto(request_msg, (MULTICAST_GROUP, MULTICAST_PORT))
 
-def wait_for_response(sock: socket.socket) -> None:
-    """
-    Aguarda a resposta do servidor.
-    """
-    try:
-        response_data, _ = sock.recvfrom(4096)
-        response = json.loads(response_data.decode("utf-8"))
-        debug_print(f"Resposta recebida: {response}")
-    except socket.timeout:
-        debug_print("Tempo limite de espera pela resposta do servidor.")
-    # finally:
-    #     sock.close()
+# def wait_for_response(sock: socket.socket) -> None:
+#     """
+#     Aguarda a resposta do servidor.
+#     """
+#     try:
+#         response_data, _ = sock.recvfrom(4096)
+#         response = json.loads(response_data.decode("utf-8"))
+#         debug_print(f"Resposta recebida: {response}")
+#     except socket.timeout:
+#         debug_print("Tempo limite de espera pela resposta do servidor.")
+#     # finally:
+#     #     sock.close()
 
+def client_interface() -> None:
+    """
+    Monta uma interface CLI para teste do cliente.
+    """
+
+    while True:
+        os.system('clear')  
+        print("=== Cliente Multicast ===")
+        print("1. Solicitar lista de filmes")
+        print("2. Solicitar detalhes de um filme específico")
+        print("3. Adicionar avaliação a um filme")
+        print("0. Sair")
+
+        choice = input("Escolha uma opção: ")
+
+        if choice == "1":
+            # Solicita a lista de filmes
+            res = application.get(sock, None, MULTICAST_GROUP, MULTICAST_PORT)
+            pass
+        elif choice == "2":
+            os.system('clear')
+            print("Digite o ID do filme:")
+            film_id = int(input())
+            application.get(sock, film_id, MULTICAST_GROUP, MULTICAST_PORT)
+            # Solicita detalhes de um filme específico
+            pass
+        elif choice == "3":
+            os.system('clear')
+            # Adiciona uma avaliação a um filme específico
+            print("Digite o ID do filme:")
+            film_id = int(input())
+
+            os.system('clear')
+            print("Digite a avaliação:")
+            review = input()
+            application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
+            pass
+        elif choice == "0":
+            # Sai do cliente
+            os.system('clear')
+            break
 
 def main() -> None:
     global MULTICAST_GROUP, MULTICAST_PORT
@@ -70,18 +111,9 @@ def main() -> None:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     ttl = 1
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
-    sock.settimeout(TIMEOUT_SEGUNDOS)
     sock.bind(("", 0))
 
-    # Solicita a lista de filmes
-    request_films(sock)
-    wait_for_response(sock)
-
-    # Adiciona uma avaliação a um filme específico
-    film_id = 1  
-    review = "Ótimo filme!"  
-    add_review(sock, film_id, review)
-    wait_for_response(sock)
+    client_interface()
 
 if __name__ == "__main__":
     main()
