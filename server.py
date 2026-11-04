@@ -4,12 +4,17 @@
 # Modificado em 31/10/26
 # ======================
 
+import time
+import threading
 import json
 import state
 import threading
 import socket
 import argparse
+from state import set_leader, get_peer_servers, peer_servers, remove_peer_server, get_server_id, get_leader
 from helpers import configure_debug, read_config, debug_print
+
+lock = threading.Lock()
 
 # ======================
 
@@ -56,7 +61,7 @@ def handle_tcp_message(client: socket.socket) -> None:
     state.debug_print(f"Processando mensagem do servidor {address}: {request}, resposta: {response}")
     response = process_server_message(request, address)
     if response:
-        sock.sendto(json.dumps(response).encode("utf-8"), address)
+        socket.sendto(json.dumps(response).encode("utf-8"), address)
 
     shutdown(client)
 
@@ -70,12 +75,12 @@ def start_tcp(server_config: dict) -> None:
 
     sock.listen(5)
 
-    state.debug_print(f"Servidor {SERVER_ID} : servidor TCP iniciado")
+    state.debug_print(f"Servidor {get_server_id()} : servidor TCP iniciado")
     while True:
         client, addr = sock.accept()
 
         client_handler = threading.Thread(target = handle_tcp_message, args = (client,))
-        client_handler.start();
+        client_handler.start()
 
 def connect_to_servers(target_host: str, target_port: int):
     """
@@ -98,7 +103,7 @@ def heartbeat(servers_config: dict, time_sec: int):
     
     request = {
         "operation": "HEARTBEAT",
-        "server_id": str(SERVER_ID),
+        "server_id": str(get_server_id()),
     }
 
     request_msg = json.dumps(request).encode("utf-8")
@@ -114,21 +119,21 @@ def heartbeat(servers_config: dict, time_sec: int):
             state.debug_print(f"Encerrando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["port"]}")
             shutdown(sock)
 
-def process_heartbeat(heartbeat_server_id: int) -> bool:
+def process_heartbeat(heartbeat_server_id: int, failure_t: int) -> bool:
     """
     Processa o recebimento de um heartbeat
     """
 
     with lock:
         state.debug_print(f"Processando Heartbeat do servidor de id {heartbeat_server_id}")
-        if (heartbeat_server_id == SERVER_ID):
+        if (heartbeat_server_id == get_server_id()):
             return True
 
         server = peer_servers[str(heartbeat_server_id)]
         if (server["heartbeats_to_die"] <= 0):
             return False
 
-        server["heartbeats_to_die"] = config["failure_t"]
+        server["heartbeats_to_die"] = failure_t
         return True
 
 def discount_heartbeat(time_sec: int) -> None:
@@ -142,14 +147,15 @@ def discount_heartbeat(time_sec: int) -> None:
 
         with lock:
             peers = get_peer_servers()
-            for k,v in peers:
-                v["heartbeats_to_die"]--
+            for k in peers:
+                v = peers[k]
+                v["heartbeats_to_die"] = v["heartbeats_to_die"] - 1
                 if v["heartbeats_to_die"] <= 0:
                     peers_to_remove.append(k)
 
             leader_removed = False
             for k in peers_to_remove:
-                if (k == leader_id):
+                if (k == get_leader()):
                     leader_removed = True
 
                 state.debug_print(f"Servidor de id {k} irresponsivo, removendo ele da lista de peers")
@@ -166,9 +172,9 @@ def elect_leader():
     """
 
     peer = get_peer_servers()
-    leader = SERVER_ID
+    leader = get_server_id()
 
-    for (v in peer):
+    for v in peer:
         if (int(v) < int(leader)):
             leader = v
 
@@ -280,6 +286,9 @@ def main() -> None:
         }
         for server_id, server_config in config["servers"].items()
     }
+
+    global failure_t 
+    failure_t = config["failure_t"]
     
     state.init_state(
         server_id=server_id,
@@ -291,9 +300,9 @@ def main() -> None:
     )
 
     # Inicia os threads para UDP, TCP e heartbeat
-    threading.Thread(target=start_udp_multicast, args=(multicast_config,), daemon=True).start()
-    threading.Thread(target=start_tcp, args=(servers_config,), daemon=True).start()
-    threading.Thread(target=discount_heartbeat, args=(config["heartbeat_t"],), daemon=True).start()
+    # threading.Thread(target=start_udp_multicast, args=(multicast_config,), daemon=True).start()
+    threading.Thread(target=start_tcp, args=(servers_config[get_server_id()] ,), daemon=True).start()
+    threading.Thread(target=discount_heartbeat, args=(config["heartbeat_t"], ), daemon=True).start()
 
     try:
         while True:
