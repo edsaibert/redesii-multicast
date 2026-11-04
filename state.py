@@ -107,6 +107,14 @@ def remove_peer_server(server_id: str) -> None:
         peer_servers.pop(server_id)
 
 
+def get_server_id() -> str:
+    with lock:
+        return SERVER_ID
+
+def get_failure_t() -> int:
+    with lock:
+        return 
+
 def get_films() -> list:
     with lock:
         return films.copy()
