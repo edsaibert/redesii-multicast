@@ -209,9 +209,16 @@ def process_server_message(message: str):
     operation = message.get("operation")
     response = {}
 
-    if operation == "ADD_REVIEW":
-        film_id = message.get("film_id")
-        review = message.get("review")
+    if operation == "REPLICATE_POST":
+        if str(message.get("server_id")) != str(get_leader()):
+            return {
+                "status": "ERROR",
+                "message": "Apenas o líder pode replicar alterações",
+            }
+
+        body = message.get("body", {})
+        film_id = body.get("resource_id")
+        review = body.get("content")
         success = state.add_review(film_id, review)
 
         if not success:
@@ -223,10 +230,35 @@ def process_server_message(message: str):
 
     if operation == "HEARTBEAT":
         heartbeat_server_id = message.get("server_id")
-        process_heartbeat(heartbeat_server_id)
+        process_heartbeat(heartbeat_server_id, failure_t)
 
     response = {"status": "ERROR", "message": "Operação desconhecida"}
     return response
+
+
+def replicate_post_to_peers(body: dict) -> bool:
+    """
+    Replica uma alteração em todos os servidores ativos.
+    """
+    for peer_id, peer in get_peer_servers().items():
+        try:
+            sock = connect_to_servers(peer["ip"], peer["tcp_port"])
+            if sock is None:
+                return False
+
+            request = {
+                "operation": "REPLICATE_POST",
+                "server_id": str(get_server_id()),
+                "body": body,
+            }
+            sock.sendall(json.dumps(request).encode("utf-8"))
+            shutdown(sock)
+        except (KeyError, OSError):
+            return False
+
+        state.debug_print(f"Alteração enviada ao servidor {peer_id}")
+
+    return True
 
 
 # Encerramento de socket
@@ -272,6 +304,12 @@ def process_client_message(message: str, address: tuple):
         if not success:
             response = {"status": "ERROR", "message": f"Erro ao adicionar review ao filme {film_id}"}
             return response
+
+        if not replicate_post_to_peers(body):
+            return {
+                "status": "ERROR",
+                "message": "Falha ao replicar alteração nos servidores ativos",
+            }
 
         response = {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
         return response
