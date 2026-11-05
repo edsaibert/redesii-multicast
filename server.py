@@ -48,21 +48,28 @@ def start_udp_multicast(multicast_config: dict) -> None:
             sock.sendto(json.dumps(response).encode("utf-8"), address)
 
 # Tratamento de TCP
-def handle_tcp_message(client: socket.socket) -> None:
+def handle_tcp_message(client: socket.socket, address: tuple) -> None:
     """
     Trata uma conexao TCP
     """
 
-    data = client.recv(4096)
+    try:
+        while True:
+            data = client.recv(4096)
+            if not data:
+                return
 
-    if data:
-        state.debug_print(f"Mensagem recebida de: {data}")
-        request = json.loads(data.decode("utf-8"))
-
-        state.debug_print(f"Processando mensagem do servidor: {request}, resposta: {request}")
-        process_server_message(request)
-
-    shutdown(client)
+            request = json.loads(data.decode("utf-8"))
+            state.debug_print(
+                f"Processando mensagem do servidor {address}: {request}"
+            )
+            response = process_server_message(request)
+            if response:
+                client.sendall((json.dumps(response) + "\n").encode("utf-8"))
+    except (ConnectionError, OSError, json.JSONDecodeError) as error:
+        debug_print(f"Erro na conexão TCP com {address}: {error}")
+    finally:
+        shutdown(client)
 
 def start_tcp(server_config: dict) -> None:
     """
@@ -78,7 +85,11 @@ def start_tcp(server_config: dict) -> None:
     while True:
         client, addr = sock.accept()
 
-        client_handler = threading.Thread(target = handle_tcp_message, args = (client,))
+        client_handler = threading.Thread(
+            target=handle_tcp_message,
+            args=(client, addr),
+            daemon=True,
+        )
         client_handler.start()
 
 def connect_to_servers(target_host: str, target_port: int):
@@ -110,31 +121,35 @@ def heartbeat(servers_config: dict, time_sec: int):
 
     request_msg = json.dumps(request).encode("utf-8")
 
+    connections = {}
     while True:
         time.sleep(time_sec)
 
-        try: 
-            server_id = get_server_id()
-            servers = get_peer_servers()
-            if servers:
-                for v in servers:
-                    if (v != server_id):
-                        k = servers[v]
-                        state.debug_print(f"Iniciando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
-                        sock = connect_to_servers(k["ip"], k["tcp_port"])
+        server_id = get_server_id()
+        servers = get_peer_servers()
+        if not servers:
+            state.debug_print("Não há mais outros servidores vivos, desligando Heartbeat")
+            return
 
-                        if sock:
-                            sock.send(request_msg)  
-                            state.debug_print(f"Encerrando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
-                            shutdown(sock)
-                        else:
-                            state.debug_print(f"Não foi possível enviar Heartbeat para o servidor em {k["ip"]}, id{v} e porta {k["tcp_port"]}")
-            else:
-                state.debug_print(f"Não há mais outros servidores vivos, desligando Heartbeat")
-                return
-        except:
-            state.debug_print(f"Ocorreu um erro não identificado na comunicação.")
-            continue
+        for peer_id, peer in servers.items():
+            if peer_id == server_id:
+                continue
+
+            sock = connections.get(peer_id)
+            if sock is None:
+                sock = connect_to_servers(peer["ip"], peer["tcp_port"])
+                if sock is None:
+                    state.debug_print(
+                        f"Não foi possível conectar ao servidor {peer_id}"
+                    )
+                    continue
+                connections[peer_id] = sock
+
+            try:
+                sock.sendall(request_msg)
+            except (ConnectionError):
+                shutdown(sock)
+                connections.pop(peer_id, None)
 
 def process_heartbeat(heartbeat_server_id: int, failure_t: int) -> bool:
     """
@@ -209,9 +224,16 @@ def process_server_message(message: str):
     operation = message.get("operation")
     response = {}
 
-    if operation == "ADD_REVIEW":
-        film_id = message.get("film_id")
-        review = message.get("review")
+    if operation == "REPLICATE_POST":
+        if str(message.get("server_id")) != str(get_leader()):
+            return {
+                "status": "ERROR",
+                "message": "Apenas o líder pode replicar alterações",
+            }
+
+        body = message.get("body", {})
+        film_id = body.get("resource_id")
+        review = body.get("content")
         success = state.add_review(film_id, review)
 
         if not success:
@@ -223,10 +245,41 @@ def process_server_message(message: str):
 
     if operation == "HEARTBEAT":
         heartbeat_server_id = message.get("server_id")
-        process_heartbeat(heartbeat_server_id)
+        process_heartbeat(heartbeat_server_id, failure_t)
 
     response = {"status": "ERROR", "message": "Operação desconhecida"}
     return response
+
+
+def replicate_post_to_peers(body: dict) -> bool:
+    """
+    Replica uma alteração em todos os servidores ativos.
+    """
+    for peer_id, peer in get_peer_servers().items():
+        try:
+            sock = connect_to_servers(peer["ip"], peer["tcp_port"])
+            if sock is None:
+                return False
+
+            response = application.replicate_post(
+                sock,
+                str(get_server_id()),
+                body["resource_id"],
+                body["content"],
+            )
+            shutdown(sock)
+            if response.get("status") != "OK":
+                state.debug_print(f"Falha ao replicar alteração no servidor {peer_id}: {response.get('message')}")
+                return False
+
+        except Exception as error:
+            state.debug_print(
+                f"Erro ao replicar alteração no servidor {peer_id}: {error}"
+            )
+            return False
+
+        state.debug_print(f"Alteração confirmada pelo servidor {peer_id}")
+    return True
 
 
 # Encerramento de socket
@@ -268,10 +321,23 @@ def process_client_message(message: str, address: tuple):
     elif operation == "POST":
         film_id = body.get("resource_id")
         review = body.get("content")
-        success = state.add_review(film_id, review)
-        if not success:
-            response = {"status": "ERROR", "message": f"Erro ao adicionar review ao filme {film_id}"}
-            return response
+        if not state.get_film(film_id):
+            return {
+                "status": "ERROR",
+                "message": f"Filme com ID {film_id} não encontrado",
+            }
+
+        if not replicate_post_to_peers(body):
+            return {
+                "status": "ERROR",
+                "message": "Falha ao replicar alteração nos servidores ativos",
+            }
+
+        if not state.add_review(film_id, review):
+            return {
+                "status": "ERROR",
+                "message": f"Erro ao adicionar review ao filme {film_id}",
+            }
 
         response = {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
         return response
@@ -332,7 +398,11 @@ def main() -> None:
     )
 
     # Inicia os threads para UDP, TCP e heartbeat
-    # threading.Thread(target=start_udp_multicast, args=(multicast_config,), daemon=True).start()
+    threading.Thread(
+        target=start_udp_multicast,
+        args=(multicast_config,),
+        daemon=True,
+    ).start()
     threading.Thread(target=start_tcp, args=(servers_config[get_server_id()] ,), daemon=True).start()
     threading.Thread(target=heartbeat, args=(servers_config, config["heartbeat_t"], ), daemon=True).start()
     threading.Thread(target=discount_heartbeat, args=(config["heartbeat_t"], ), daemon=True).start()

@@ -16,37 +16,49 @@ TIMEOUT_MESSAGE = 5 # Tempo limite de espera para resposta do servidor em segund
 # Header = {
 #    "operation": str,  # Tipo de operação (GET, POST, etc.)
 #    "body": Optional[str]  # Corpo da mensagem (opcional)
-#}
+# }
 
 # body = {
 #    "id": Optional[int],  # ID do item (opcional)
 #    "response_code": Optional[int],  # Código de resposta (opcional)
 #    "content": Optional[str]  # Conteúdo do item (opcional)
-#}
+# }
 
 # ======================
+
+def _read_blocks(sock: socket.socket, buffer_size: int = 4096) -> bytes:
+    """
+    Lê uma mensagem TCP terminada por newline.
+    """
+    data = b""
+
+    while b"\n" not in data:
+        block = sock.recv(buffer_size)
+        if not block:
+            break
+        data += block
+
+    return data.split(b"\n", 1)[0]
 
 def get(sock: socket.socket, resource_id: Optional[int], ip_dest: str, port: int) -> dict:
     """
     Solicita informações sobre um item específico ao servidor.
     """ 
     sock.settimeout(TIMEOUT_MESSAGE)
-    # Envia requisição pedindo recurso ao processo
     try:
+        # Envia requisição pedindo recurso ao processo
         header = build_header("GET", resource_id=resource_id)
         request_msg = json.dumps(header).encode("utf-8")
         sock.sendto(request_msg, (ip_dest, port))
-    except socket.timeout:
-        return {}  
 
-    # Espera uma resposta do servidor contendo os dados do recurso
-    try:
+        # Aguarda resposta do servidor UDP
         response_data, _ = sock.recvfrom(4096)
         response = json.loads(response_data.decode("utf-8"))
         return response 
-    except socket.timeout:
-        return {}   
-    
+    except (socket.timeout):
+        return {}  
+
+
 def post(sock: socket.socket, resource_id: int, resource_body: str, ip_dest: str, port: int) -> int:
     """
     Envia um novo item à um recurso específico ao servidor.
@@ -59,6 +71,56 @@ def post(sock: socket.socket, resource_id: int, resource_body: str, ip_dest: str
     except socket.timeout:
         return 0   # timeout
     return 1
+
+def replicate_post(
+    sock: socket.socket,
+    server_id: str,
+    resource_id: int,
+    resource_body: str,
+) -> dict:
+    """
+    Solicita a replicação de uma avaliação em um servidor conectado.
+    """
+    sock.settimeout(TIMEOUT_MESSAGE)
+    try:
+        header = build_header(
+            "REPLICATE_POST",
+            resource_id=resource_id,
+            resource_body=resource_body,
+        )
+        header["server_id"] = server_id
+        request_msg = json.dumps(header).encode("utf-8")
+        sock.sendall(request_msg)
+
+        response_data = _read_blocks(sock)
+        if not response_data:
+            return {}
+
+        response = json.loads(response_data.decode("utf-8"))    
+        return response 
+
+    except (socket.timeout):
+        return {}
+
+def health(sock: socket.socket, server_id: str) -> dict:
+    """
+    Verifica a saúde de um servidor através de um socket TCP conectado.
+    """
+    sock.settimeout(TIMEOUT_MESSAGE)
+    try:
+        header = build_header("HEALTH", resource_id=server_id)
+        request_msg = json.dumps(header).encode("utf-8")
+        sock.sendall(request_msg)
+
+        # Aguarda resposta do servidor
+        response_data = _read_blocks(sock)
+        if not response_data:
+            return {}
+
+        response = json.loads(response_data.decode("utf-8"))    
+        return response 
+    except (socket.timeout):
+        return {}
 
 def respond(sock: socket.socket, ip_dest: str, port: int, response_code: int, response: dict) -> int:
     """
