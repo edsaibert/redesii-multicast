@@ -185,10 +185,11 @@ def replicate_post_to_peers(body: dict) -> bool:
                 body["content"],
             )
             shutdown(sock)
-            if response.get("status") != "OK":
+            response_body = response.get("response", {})
+            if response_body.get("status") != "OK":
                 state.debug_print(
                     f"Falha ao replicar alteração no servidor {peer_id}: "
-                    f"{response.get('message')}"
+                    f"{response_body.get('message')}"
                 )
                 return False
         except Exception as error:

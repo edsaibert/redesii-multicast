@@ -5,9 +5,7 @@
 
 import json
 import socket
-import argparse
 from typing import Optional
-from src.helpers import configure_debug, debug_print
 
 # =====================
 
@@ -40,6 +38,11 @@ def _read_blocks(sock: socket.socket, buffer_size: int = 4096) -> bytes:
 
     return data.split(b"\n", 1)[0]
 
+def _read_udp_response(sock: socket.socket) -> dict:
+    response_data, _ = sock.recvfrom(4096)
+    return json.loads(response_data.decode("utf-8"))
+
+
 def get(sock: socket.socket, resource_id: Optional[int], ip_dest: str, port: int) -> dict:
     """
     Solicita informações sobre um item específico ao servidor.
@@ -52,14 +55,18 @@ def get(sock: socket.socket, resource_id: Optional[int], ip_dest: str, port: int
         sock.sendto(request_msg, (ip_dest, port))
 
         # Aguarda resposta do servidor UDP
-        response_data, _ = sock.recvfrom(4096)
-        response = json.loads(response_data.decode("utf-8"))
-        return response 
-    except (socket.timeout):
-        return {}  
+        return _read_udp_response(sock)
+    except socket.timeout:
+        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
 
 
-def post(sock: socket.socket, resource_id: int, resource_body: str, ip_dest: str, port: int) -> int:
+def post(
+    sock: socket.socket,
+    resource_id: int,
+    resource_body: str,
+    ip_dest: str,
+    port: int,
+) -> dict:
     """
     Envia um novo item à um recurso específico ao servidor.
     """
@@ -68,9 +75,9 @@ def post(sock: socket.socket, resource_id: int, resource_body: str, ip_dest: str
         header = build_header("POST", resource_id=resource_id, resource_body=resource_body)
         request_msg = json.dumps(header).encode("utf-8")
         sock.sendto(request_msg, (ip_dest, port))
+        return _read_udp_response(sock)
     except socket.timeout:
-        return 0   # timeout
-    return 1
+        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
 
 def replicate_post(
     sock: socket.socket,
@@ -94,13 +101,13 @@ def replicate_post(
 
         response_data = _read_blocks(sock)
         if not response_data:
-            return {}
+            return {"response": {"status": "ERROR", "message": "Resposta vazia"}}
 
         response = json.loads(response_data.decode("utf-8"))    
         return response 
 
-    except (socket.timeout):
-        return {}
+    except socket.timeout:
+        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
 
 def health(sock: socket.socket, server_id: str) -> dict:
     """
@@ -115,21 +122,29 @@ def health(sock: socket.socket, server_id: str) -> dict:
         # Aguarda resposta do servidor
         response_data = _read_blocks(sock)
         if not response_data:
-            return {}
+            return {"response": {"status": "ERROR", "message": "Resposta vazia"}}
 
         response = json.loads(response_data.decode("utf-8"))    
         return response 
-    except (socket.timeout):
-        return {}
+    except socket.timeout:
+        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
 
-def respond(sock: socket.socket, ip_dest: str, port: int, response_code: int, response: dict) -> int:
+def respond(
+    sock: socket.socket,
+    ip_dest: str,
+    port: int,
+    response_code: int,
+    response: dict,
+) -> int:
     """
     Resposta a uma solicitação do tipo GET ou POST.
     """
     sock.settimeout(TIMEOUT_MESSAGE)
     try:
         header = build_header(
-            "RESPONSE", response_code=response_code, content=response
+            "RESPONSE",
+            response_code=response_code,
+            content={"response": response},
         )
         request_msg = json.dumps(header).encode("utf-8")
         sock.sendto(request_msg, (ip_dest, port))

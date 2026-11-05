@@ -26,7 +26,7 @@ def request_films(sock: socket.socket) -> None:
         debug_print("Não foi possível obter resposta a requisição.")
         return 0
 
-    print(res, end="\n\n")
+    print(res["response"], end="\n\n")
     return 1
 
 
@@ -39,11 +39,12 @@ def request_film(sock: socket.socket, film_id: int) -> None:
         debug_print("Não foi possível obter resposta a requisição.")
         return 0
 
-    if "film" not in res:
-        print(res, end="\n\n")
+    response = res["response"]
+    if "film" not in response:
+        print(response, end="\n\n")
         return 0
 
-    print(res["film"], end="\n\n")
+    print(response["film"], end="\n\n")
     return 1
 
 
@@ -52,7 +53,7 @@ def add_review(sock: socket.socket, film_id: int, review: str) -> None:
     Adiciona uma avaliação a um filme específico.
     """
     flag = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
-    if (not flag):
+    if flag.get("response", {}).get("status") != "OK":
         debug_print("Não foi possível adicionar a avaliação.")
         return 0
 

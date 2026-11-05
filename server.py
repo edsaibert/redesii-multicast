@@ -16,30 +16,32 @@ from src.state import get_leader
 failure_t = 0
 
 
+def _response(status: str, **data: object) -> dict:
+    return {"response": {"status": status, **data}}
+
+
 def process_server_message(message: dict) -> dict:
     """Processa mensagens recebidas de outros servidores."""
     operation = message.get("operation")
 
     if operation == "REPLICATE_POST":
         if str(message.get("server_id")) != str(get_leader()):
-            return {
-                "status": "ERROR",
-                "message": "Apenas o líder pode replicar alterações",
-            }
+            return _response("ERROR", message="Apenas o líder pode replicar alterações")
 
         body = message.get("body", {})
         film_id = body.get("resource_id")
         if not state.add_review(film_id, body.get("content")):
-            return {
-                "status": "ERROR",
-                "message": f"Erro ao adicionar review ao filme {film_id}",
-            }
-        return {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
+            return _response(
+                "ERROR",
+                message=f"Erro ao adicionar review ao filme {film_id}",
+            )
+        return _response("OK", message=f"Review adicionada ao filme {film_id}")
 
     if operation == "HEARTBEAT":
         tcp_server.process_heartbeat(message.get("server_id"), failure_t)
+        return _response("OK")
 
-    return {"status": "ERROR", "message": "Operação desconhecida"}
+    return _response("ERROR", message="Operação desconhecida")
 
 
 def process_client_message(message: str, address: tuple) -> dict | None:
@@ -48,7 +50,7 @@ def process_client_message(message: str, address: tuple) -> dict | None:
 
     if not state.is_leader():
         debug_print(f"Servidor não é líder. Ignorando mensagem do cliente {address}")
-        return None
+        return _response("ERROR", message="Servidor não é líder")
 
     operation = request.get("operation")
     body = request.get("body", {})
@@ -57,41 +59,41 @@ def process_client_message(message: str, address: tuple) -> dict | None:
         try:
             resource_id = body.get("resource_id")
             if resource_id is None:
-                return {"status": "OK", "films": state.get_films()}
+                return _response("OK", films=state.get_films())
 
             film = state.get_film(resource_id)
             if not film:
-                return {
-                    "status": "ERROR",
-                    "message": f"Filme com ID {resource_id} não encontrado",
-                }
-            return {"status": "OK", "film": film}
+                return _response(
+                    "ERROR",
+                    message=f"Filme com ID {resource_id} não encontrado",
+                )
+            return _response("OK", film=film)
         except Exception as error:
             debug_print(f"Erro ao processar GET: {error}")
-            return {"status": "ERROR", "message": "Erro ao processar GET"}
+            return _response("ERROR", message="Erro ao processar GET")
 
     if operation == "POST":
         film_id = body.get("resource_id")
         if not state.get_film(film_id):
-            return {
-                "status": "ERROR",
-                "message": f"Filme com ID {film_id} não encontrado",
-            }
+            return _response(
+                "ERROR",
+                message=f"Filme com ID {film_id} não encontrado",
+            )
 
         if not tcp_server.replicate_post_to_peers(body):
-            return {
-                "status": "ERROR",
-                "message": "Falha ao replicar alteração nos servidores ativos",
-            }
+            return _response(
+                "ERROR",
+                message="Falha ao replicar alteração nos servidores ativos",
+            )
 
         if not state.add_review(film_id, body.get("content")):
-            return {
-                "status": "ERROR",
-                "message": f"Erro ao adicionar review ao filme {film_id}",
-            }
-        return {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
+            return _response(
+                "ERROR",
+                message=f"Erro ao adicionar review ao filme {film_id}",
+            )
+        return _response("OK", message=f"Review adicionada ao filme {film_id}")
 
-    return {"status": "ERROR", "message": "Operação desconhecida"}
+    return _response("ERROR", message="Operação desconhecida")
 
 
 def main() -> None:
