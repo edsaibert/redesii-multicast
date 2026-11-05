@@ -119,6 +119,13 @@ def get_films() -> list:
     with lock:
         return films.copy()
 
+def get_film(id: int) -> list:
+    with lock:
+        for item in films.copy():
+            if item["id"] == id:
+                return item
+        return {}
+
 def add_review(film_id: int, review: dict) -> bool:
     with lock:
         for film in films:
