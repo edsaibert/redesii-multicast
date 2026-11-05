@@ -7,7 +7,7 @@ import json
 import socket
 import argparse
 from typing import Optional
-from helpers import configure_debug, debug_print
+from src.helpers import configure_debug, debug_print
 
 # =====================
 

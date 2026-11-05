@@ -4,225 +4,21 @@
 # Modificado em 31/10/26
 # ======================
 
-import time
-import threading
-import json
-import state
-import threading
-import socket
-import application
 import argparse
-from state import set_leader, get_peer_servers, peer_servers, remove_peer_server, get_server_id, get_leader
-from helpers import configure_debug, read_config, debug_print
+import json
+import threading
 
-lock = threading.Lock()
+import src.state as state
+from src.helpers import configure_debug, debug_print, read_config
+from src import tcp_server, udp_server
+from src.state import get_leader
 
-# ======================
+failure_t = 0
 
 
-def start_udp_multicast(multicast_config: dict) -> None:
-    """
-    Inicia o servidor UDP de multicast.
-    """
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(("", multicast_config["port"]))
-
-    multicast_group = socket.inet_aton(multicast_config["group"]) + socket.inet_aton(multicast_config["interface"])
-
-    sock.setsockopt(
-        socket.IPPROTO_IP, 
-        socket.IP_ADD_MEMBERSHIP, 
-        multicast_group)
-
-    # Loop para receber mensagens de multicast
-    while True:
-        data, address = sock.recvfrom(4096)
-        state.debug_print(f"Mensagem recebida de {address}: {data.decode()}")
-        response = process_client_message(data.decode("utf-8"), address)    
-
-        request = json.loads(data.decode("utf-8"))
-        state.debug_print(f"Processando mensagem do cliente {address}: {request}, resposta: {response}")
-        if response:    
-            sock.sendto(json.dumps(response).encode("utf-8"), address)
-
-# Tratamento de TCP
-def handle_tcp_message(client: socket.socket, address: tuple) -> None:
-    """
-    Trata uma conexao TCP
-    """
-
-    try:
-        while True:
-            data = client.recv(4096)
-            if not data:
-                return
-
-            request = json.loads(data.decode("utf-8"))
-            state.debug_print(
-                f"Processando mensagem do servidor {address}: {request}"
-            )
-            response = process_server_message(request)
-            if response:
-                client.sendall((json.dumps(response) + "\n").encode("utf-8"))
-    except (ConnectionError, OSError, json.JSONDecodeError) as error:
-        debug_print(f"Erro na conexão TCP com {address}: {error}")
-    finally:
-        shutdown(client)
-
-def start_tcp(server_config: dict) -> None:
-    """
-    Inicia o servidor TCP.
-    """
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((server_config["ip"], server_config["tcp_port"]))
-
-    sock.listen(5)
-
-    state.debug_print(f"Servidor {get_server_id()}: servidor TCP iniciado")
-    while True:
-        client, addr = sock.accept()
-
-        client_handler = threading.Thread(
-            target=handle_tcp_message,
-            args=(client, addr),
-            daemon=True,
-        )
-        client_handler.start()
-
-def connect_to_servers(target_host: str, target_port: int):
-    """
-    Conecta-se aos servidores vizinhos.
-    """
-
-    state.debug_print(f"Iniciando conexão com servidor {target_host}: porta {target_port}")
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    client.settimeout(2)
-    try:
-        client.connect((target_host, target_port))
-        return client
-    except:
-        return None
-
-# Heartbeat
-
-def heartbeat(servers_config: dict, time_sec: int):
-    """
-    Envia um heartbeat para os outros servidores.
-    """
-    
-    request = {
-        "operation": "HEARTBEAT",
-        "server_id": str(get_server_id()),
-    }
-
-    request_msg = json.dumps(request).encode("utf-8")
-
-    connections = {}
-    while True:
-        time.sleep(time_sec)
-
-        server_id = get_server_id()
-        servers = get_peer_servers()
-        if not servers:
-            state.debug_print("Não há mais outros servidores vivos, desligando Heartbeat")
-            return
-
-        for peer_id, peer in servers.items():
-            if peer_id == server_id:
-                continue
-
-            sock = connections.get(peer_id)
-            if sock is None:
-                sock = connect_to_servers(peer["ip"], peer["tcp_port"])
-                if sock is None:
-                    state.debug_print(
-                        f"Não foi possível conectar ao servidor {peer_id}"
-                    )
-                    continue
-                connections[peer_id] = sock
-
-            try:
-                sock.sendall(request_msg)
-            except (ConnectionError):
-                shutdown(sock)
-                connections.pop(peer_id, None)
-
-def process_heartbeat(heartbeat_server_id: int, failure_t: int) -> bool:
-    """
-    Processa o recebimento de um heartbeat
-    """
-
-    with lock:
-        state.debug_print(f"Processando Heartbeat do servidor de id {heartbeat_server_id}")
-        if (heartbeat_server_id == get_server_id()):
-            return True
-
-        peer = get_peer_servers()
-        server = peer[str(heartbeat_server_id)]
-        if (server["heartbeats_to_die"] <= 0):
-            return False
-
-        server["heartbeats_to_die"] = failure_t
-        return True
-
-def discount_heartbeat(time_sec: int) -> None:
-    """
-    Reduz a quantidade de heartbeats necessarios para os servidores serem considerados mortos e remove os mortos
-    """
-
-    while True:
-        time.sleep(time_sec)
-        peers_to_remove = []
-
-        with lock:
-            peers = get_peer_servers()
-            for k in peers:
-                v = peers[k]
-                v["heartbeats_to_die"] = v["heartbeats_to_die"] - 1
-                if v["heartbeats_to_die"] <= 0:
-                    peers_to_remove.append(k)
-
-            leader_removed = False
-            for k in peers_to_remove:
-                if (k == get_leader()):
-                    leader_removed = True
-
-                state.debug_print(f"Servidor de id {k} irresponsivo, removendo ele da lista de peers")
-                remove_peer_server(k)
-            
-            if leader_removed:
-                elect_leader()
-
-# Eleicao de lider
-
-def elect_leader():
-    """
-    Inicia o processo de eleição do líder.
-    """
-
-    peer = get_peer_servers()
-    leader = get_server_id()
-
-    for v in peer:
-        if (int(v) < int(leader)):
-            leader = v
-
-    state.debug_print(f"Elegendo como líder o servidor de id {leader}")
-    set_leader(leader)
-
-# Processamento de mensagens
-
-def process_server_message(message: str):
-    """
-    Processa mensagens recebidas de outros servidores.
-    """
-
+def process_server_message(message: dict) -> dict:
+    """Processa mensagens recebidas de outros servidores."""
     operation = message.get("operation")
-    response = {}
 
     if operation == "REPLICATE_POST":
         if str(message.get("server_id")) != str(get_leader()):
@@ -233,149 +29,85 @@ def process_server_message(message: str):
 
         body = message.get("body", {})
         film_id = body.get("resource_id")
-        review = body.get("content")
-        success = state.add_review(film_id, review)
-
-        if not success:
-            response = {"status": "ERROR", "message": f"Erro ao adicionar review ao filme {film_id}"}
-            return response
-        
-        response = {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
-        return response
+        if not state.add_review(film_id, body.get("content")):
+            return {
+                "status": "ERROR",
+                "message": f"Erro ao adicionar review ao filme {film_id}",
+            }
+        return {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
 
     if operation == "HEARTBEAT":
-        heartbeat_server_id = message.get("server_id")
-        process_heartbeat(heartbeat_server_id, failure_t)
+        tcp_server.process_heartbeat(message.get("server_id"), failure_t)
 
-    response = {"status": "ERROR", "message": "Operação desconhecida"}
-    return response
+    return {"status": "ERROR", "message": "Operação desconhecida"}
 
 
-def replicate_post_to_peers(body: dict) -> bool:
-    """
-    Replica uma alteração em todos os servidores ativos.
-    """
-    for peer_id, peer in get_peer_servers().items():
-        try:
-            sock = connect_to_servers(peer["ip"], peer["tcp_port"])
-            if sock is None:
-                return False
-
-            response = application.replicate_post(
-                sock,
-                str(get_server_id()),
-                body["resource_id"],
-                body["content"],
-            )
-            shutdown(sock)
-            if response.get("status") != "OK":
-                state.debug_print(f"Falha ao replicar alteração no servidor {peer_id}: {response.get('message')}")
-                return False
-
-        except Exception as error:
-            state.debug_print(
-                f"Erro ao replicar alteração no servidor {peer_id}: {error}"
-            )
-            return False
-
-        state.debug_print(f"Alteração confirmada pelo servidor {peer_id}")
-    return True
-
-
-# Encerramento de socket
-
-def process_client_message(message: str, address: tuple):
-    """
-    Processa mensagens recebidas de clientes.
-    """
+def process_client_message(message: str, address: tuple) -> dict | None:
+    """Processa mensagens recebidas de clientes."""
     request = json.loads(message)
 
     if not state.is_leader():
         debug_print(f"Servidor não é líder. Ignorando mensagem do cliente {address}")
-        return
+        return None
 
     operation = request.get("operation")
     body = request.get("body", {})
-    response = {}
 
     if operation == "GET":
         try:
             resource_id = body.get("resource_id")
             if resource_id is None:
-                films = state.get_films()
-                response = {"status": "OK", "films": films}
-                return response
+                return {"status": "OK", "films": state.get_films()}
 
             film = state.get_film(resource_id)
             if not film:
-                response = {"status": "ERROR", "message": f"Filme com ID {resource_id} não encontrado"}
-                return response
+                return {
+                    "status": "ERROR",
+                    "message": f"Filme com ID {resource_id} não encontrado",
+                }
+            return {"status": "OK", "film": film}
+        except Exception as error:
+            debug_print(f"Erro ao processar GET: {error}")
+            return {"status": "ERROR", "message": "Erro ao processar GET"}
 
-            response = {"status": "OK", "film": film}
-            return response
-        except Exception as e:
-            debug_print(f"Erro ao processar GET: {e}")
-            response = {"status": "ERROR", "message": "Erro ao processar GET"}
-            return response
-
-    elif operation == "POST":
+    if operation == "POST":
         film_id = body.get("resource_id")
-        review = body.get("content")
         if not state.get_film(film_id):
             return {
                 "status": "ERROR",
                 "message": f"Filme com ID {film_id} não encontrado",
             }
 
-        if not replicate_post_to_peers(body):
+        if not tcp_server.replicate_post_to_peers(body):
             return {
                 "status": "ERROR",
                 "message": "Falha ao replicar alteração nos servidores ativos",
             }
 
-        if not state.add_review(film_id, review):
+        if not state.add_review(film_id, body.get("content")):
             return {
                 "status": "ERROR",
                 "message": f"Erro ao adicionar review ao filme {film_id}",
             }
+        return {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
 
-        response = {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
-        return response
-
-    response = {"status": "ERROR", "message": "Operação desconhecida"}
-    return response
-
-def shutdown(sock: socket.socket, warn: bool = False) -> None:
-    """
-    Encerra o servidor.
-    """
-    
-    try:
-        if (warn):
-            sock.shutdown(socket.SHUT_RDWR)
-    finally:
-        sock.close()
-
-    pass
+    return {"status": "ERROR", "message": "Operação desconhecida"}
 
 
 def main() -> None:
-    """
-    Função principal do servidor.
-    """
+    """Função principal do servidor."""
+    global failure_t
+
     parser = argparse.ArgumentParser(description="Servidor multicast")
     parser.add_argument("-d", "--debug", action="store_true", help="ativa as mensagens de debug")
     parser.add_argument("server_id", help="identificador do servidor")
     parser.add_argument("config_path", help="caminho para o arquivo config.toml")
     args = parser.parse_args()
 
-    debug_enabled = args.debug
-    server_id = args.server_id
     config = read_config(args.config_path)
     multicast_config = config["multicast"]
-    configure_debug(debug_enabled, server_id)
+    configure_debug(args.debug, args.server_id)
 
-    # Coleta os servidores
     servers_config = {
         str(server_id): {
             "ip": server_config["ip"],
@@ -384,28 +116,39 @@ def main() -> None:
         }
         for server_id, server_config in config["servers"].items()
     }
-
-    global failure_t 
     failure_t = config["failure_t"]
-    
+
     state.init_state(
-        server_id=server_id,
-        server_ip=servers_config[str(server_id)]["ip"],
-        server_tcp_port=servers_config[str(server_id)]["tcp_port"],
-        debug=debug_enabled,
+        server_id=args.server_id,
+        server_ip=servers_config[str(args.server_id)]["ip"],
+        server_tcp_port=servers_config[str(args.server_id)]["tcp_port"],
+        debug=args.debug,
         initial_leader_id=str(multicast_config["leader_id"]),
-        initial_peer_servers={k: v for k, v in servers_config.items() if k != server_id}
+        initial_peer_servers={
+            key: value for key, value in servers_config.items() if key != args.server_id
+        },
     )
 
-    # Inicia os threads para UDP, TCP e heartbeat
     threading.Thread(
-        target=start_udp_multicast,
-        args=(multicast_config,),
+        target=udp_server.start_udp_multicast,
+        args=(multicast_config, process_client_message),
         daemon=True,
     ).start()
-    threading.Thread(target=start_tcp, args=(servers_config[get_server_id()] ,), daemon=True).start()
-    threading.Thread(target=heartbeat, args=(servers_config, config["heartbeat_t"], ), daemon=True).start()
-    threading.Thread(target=discount_heartbeat, args=(config["heartbeat_t"], ), daemon=True).start()
+    threading.Thread(
+        target=tcp_server.start_tcp,
+        args=(servers_config[state.get_server_id()], process_server_message),
+        daemon=True,
+    ).start()
+    threading.Thread(
+        target=tcp_server.heartbeat,
+        args=(servers_config, config["heartbeat_t"]),
+        daemon=True,
+    ).start()
+    threading.Thread(
+        target=tcp_server.discount_heartbeat,
+        args=(config["heartbeat_t"],),
+        daemon=True,
+    ).start()
 
     try:
         while True:
@@ -413,18 +156,6 @@ def main() -> None:
     except KeyboardInterrupt:
         print("Shutting down server...")
 
+
 if __name__ == "__main__":
     main()
-
-
-
-# def main():
-#     threading.Thread(target=udp_receiver, daemon=True).start()
-#     threading.Thread(target=tcp_listener, daemon=True).start()
-
-#     print("Server is running")
-
-#     try:
-#         threading.Event().wait()
-#     except KeyboardInterrupt:
-#         print("Shutting down")

@@ -9,8 +9,8 @@ import os
 import time
 import socket
 import argparse
-import application
-from helpers import configure_debug, read_config, debug_print
+import src.application as application
+from src.helpers import configure_debug, read_config, debug_print
 
 MULTICAST_GROUP = None
 MULTICAST_PORT = None
