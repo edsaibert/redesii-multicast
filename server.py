@@ -89,12 +89,12 @@ def connect_to_servers(target_host: str, target_port: int):
     state.debug_print(f"Iniciando conexão com servidor {target_host}: porta {target_port}")
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    while (True):
-        try:
-            client.connect((target_host, target_port))
-            return client
-        except:
-            continue
+    client.settimeout(2)
+    try:
+        client.connect((target_host, target_port))
+        return client
+    except:
+        return None
 
 # Heartbeat
 
@@ -113,16 +113,28 @@ def heartbeat(servers_config: dict, time_sec: int):
     while True:
         time.sleep(time_sec)
 
-        server_id = get_server_id()
-        for v in servers_config:
-            if (v != server_id):
-                k = get_peer_servers()[v]
-                state.debug_print(f"Iniciando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
-                sock = connect_to_servers(k["ip"], k["tcp_port"])
+        try: 
+            server_id = get_server_id()
+            servers = get_peer_servers()
+            for v in servers:
+                if (v != server_id):
+                    if servers:
+                        k = servers[v]
+                        state.debug_print(f"Iniciando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
+                        sock = connect_to_servers(k["ip"], k["tcp_port"])
 
-                sock.send(request_msg)  
-                state.debug_print(f"Encerrando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
-                shutdown(sock)
+                        if sock:
+                            sock.send(request_msg)  
+                            state.debug_print(f"Encerrando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
+                            shutdown(sock)
+                        else:
+                            state.debug_print(f"Não foi possível enviar Heartbeat para o servidor em {k["ip"]}, id{v} e porta {k["tcp_port"]}")
+                    else:
+                        state.debug_print(f"Não há mais outros servidores vivos, desligando Heartbeat")
+                        return
+        except:
+            state.debug_print(f"Ocorreu um erro não identificado na comunicação.")
+            continue
 
 def process_heartbeat(heartbeat_server_id: int) -> bool:
     """
