@@ -12,6 +12,7 @@ import threading
 import socket
 import application
 import argparse
+import struct
 from state import set_leader, get_peer_servers, peer_servers, remove_peer_server, get_server_id, get_leader
 from helpers import configure_debug, read_config, debug_print
 
@@ -29,12 +30,12 @@ def start_udp_multicast(multicast_config: dict) -> None:
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("", multicast_config["port"]))
 
-    multicast_group = socket.inet_aton(multicast_config["group"]) + socket.inet_aton(multicast_config["interface"])
+    mreq = struct.pack("=4sl", socket.inet_aton(multicast_config["group"]), socket.INADDR_ANY)
 
     sock.setsockopt(
         socket.IPPROTO_IP, 
         socket.IP_ADD_MEMBERSHIP, 
-        multicast_group)
+        mreq)
 
     # Loop para receber mensagens de multicast
     while True:
