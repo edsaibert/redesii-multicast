@@ -116,9 +116,9 @@ def heartbeat(servers_config: dict, time_sec: int):
         try: 
             server_id = get_server_id()
             servers = get_peer_servers()
-            for v in servers:
-                if (v != server_id):
-                    if servers:
+            if servers:
+                for v in servers:
+                    if (v != server_id):
                         k = servers[v]
                         state.debug_print(f"Iniciando envio de Heartbeat para servidor {k["ip"]}, id {v} e porta {k["tcp_port"]}")
                         sock = connect_to_servers(k["ip"], k["tcp_port"])
@@ -129,9 +129,9 @@ def heartbeat(servers_config: dict, time_sec: int):
                             shutdown(sock)
                         else:
                             state.debug_print(f"Não foi possível enviar Heartbeat para o servidor em {k["ip"]}, id{v} e porta {k["tcp_port"]}")
-                    else:
-                        state.debug_print(f"Não há mais outros servidores vivos, desligando Heartbeat")
-                        return
+            else:
+                state.debug_print(f"Não há mais outros servidores vivos, desligando Heartbeat")
+                return
         except:
             state.debug_print(f"Ocorreu um erro não identificado na comunicação.")
             continue
