@@ -2,10 +2,11 @@
 # ======================
 # Eduarda Saibert - 20232368
 # Eduardo Munaretto Majczak - 20242288
-# Modificado em 02/11/26
+# Modificado em 04/11/26
 # ======================
 
 import os
+import time
 import socket
 import argparse
 import application
@@ -16,92 +17,52 @@ MULTICAST_PORT = None
 
 # ======================
 
-# def request_films(sock: socket.socket) -> None:
-#     """
-#     Solicita a lista de filmes ao servidor.
-#     """
-#     request = {
-#         "operation": "LIST"
-#     }
-#     request_msg = json.dumps(request).encode("utf-8")
-#     sock.sendto(request_msg, (MULTICAST_GROUP, MULTICAST_PORT))
-
-# def add_review(sock: socket.socket, film_id: int, review: str) -> None:
-#     """
-#     Adiciona uma avaliação a um filme específico.
-#     """
-#     request = {
-#         "operation": "ADD_REVIEW",
-#         "film_id": film_id,
-#         "review": review
-#     }
-#     request_msg = json.dumps(request).encode("utf-8")
-#     sock.sendto(request_msg, (MULTICAST_GROUP, MULTICAST_PORT))
-
-# def wait_for_response(sock: socket.socket) -> None:
-#     """
-#     Aguarda a resposta do servidor.
-#     """
-#     try:
-#         response_data, _ = sock.recvfrom(4096)
-#         response = json.loads(response_data.decode("utf-8"))
-#         debug_print(f"Resposta recebida: {response}")
-#     except socket.timeout:
-#         debug_print("Tempo limite de espera pela resposta do servidor.")
-#     # finally:
-#     #     sock.close()
-
-def client_interface(sock: socket.socket) -> None:
+def request_films(sock: socket.socket) -> None:
     """
-    Monta uma interface CLI para teste do cliente.
+    Solicita a lista de filmes ao servidor.
     """
+    res = application.get(sock, None, MULTICAST_GROUP, MULTICAST_PORT)
+    if (not res):
+        debug_print("Não foi possível obter resposta a requisição.")
+        return 0
 
-    while True:
-        os.system('clear')  
-        print("=== Cliente Multicast ===")
-        print("1. Solicitar lista de filmes")
-        print("2. Solicitar detalhes de um filme específico")
-        print("3. Adicionar avaliação a um filme")
-        print("0. Sair")
+    print(res, end="\n\n")
+    return 1
 
-        choice = input("Escolha uma opção: ")
 
-        if choice == "1":
-            # Solicita a lista de filmes
-            res = application.get(sock, None, MULTICAST_GROUP, MULTICAST_PORT)
-            if (not res):
-                debug_print("Não foi possível obter resposta a requisição.")
-                break
-            print(f"{res}")
-        elif choice == "2":
-            os.system('clear')
-            print("Digite o ID do filme:")
-            film_id = int(input())
-            debug_print(f"{MULTICAST_GROUP}, {MULTICAST_PORT}")
-            res = application.get(sock, film_id, MULTICAST_GROUP, MULTICAST_PORT)
-            if (res == -1):
-                debug_print("Não foi possível obter resposta a requisição.")
-                break
-            # Solicita detalhes de um filme específico
-        elif choice == "3":
-            os.system('clear')
-            # Adiciona uma avaliação a um filme específico
-            print("Digite o ID do filme:")
-            film_id = int(input())
+def request_film(sock: socket.socket, film_id: int) -> None:
+    """
+    Solicita detalhes de um filme específico ao servidor.
+    """
+    res = application.get(sock, film_id, MULTICAST_GROUP, MULTICAST_PORT)
+    if (not res):
+        debug_print("Não foi possível obter resposta a requisição.")
+        return 0
 
-            os.system('clear')
-            print("Digite a avaliação:")
-            review = input()
-            res = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
-            if (res == -1):
-                debug_print("Não foi possível obter resposta a requisição.")
-                break
-        elif choice == "0":
-            # Sai do cliente
-            os.system('clear')
-            break
+    if "film" not in res:
+        print(res, end="\n\n")
+        return 0
+
+    print(res["film"], end="\n\n")
+    return 1
+
+
+def add_review(sock: socket.socket, film_id: int, review: str) -> None:
+    """
+    Adiciona uma avaliação a um filme específico.
+    """
+    flag = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
+    if (not flag):
+        debug_print("Não foi possível adicionar a avaliação.")
+        return 0
+
+    print("Avaliação adicionada com sucesso.")
+    return 1
+
 
 def main() -> None:
+    """Função que realiza testes de requisições ao servidor multicast."""
+
     global MULTICAST_GROUP, MULTICAST_PORT
 
     parser = argparse.ArgumentParser(description="Cliente multicast")
@@ -121,9 +82,20 @@ def main() -> None:
     ttl = 1
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
     sock.bind(("", 0))
-
     if (not sock): debug_print("Não foi possível se conectar ao socket.")
-    client_interface(sock)
+
+    # Solicita a lista de filmes, detalhes de um filme específico e adiciona uma avaliação
+    try:
+        request_films(sock)
+        time.sleep(5)
+        request_film(sock, 1)
+        time.sleep(5)
+        request_film(sock, -1)
+        time.sleep(5)
+        add_review(sock, 1, "Ótimo filme!")
+    except KeyboardInterrupt:
+        debug_print("Encerrando cliente...")
+        sock.close()
 
 if __name__ == "__main__":
     main()

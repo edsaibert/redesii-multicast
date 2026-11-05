@@ -15,7 +15,6 @@ TIMEOUT_MESSAGE = 5 # Tempo limite de espera para resposta do servidor em segund
 
 # Header = {
 #    "operation": str,  # Tipo de operação (GET, POST, etc.)
-#    "message_id": int,  # ID da mensagem
 #    "body": Optional[str]  # Corpo da mensagem (opcional)
 #}
 
@@ -38,7 +37,7 @@ def get(sock: socket.socket, resource_id: Optional[int], ip_dest: str, port: int
         request_msg = json.dumps(header).encode("utf-8")
         sock.sendto(request_msg, (ip_dest, port))
     except socket.timeout:
-        return None   # Retorna -1 em caso de timeout
+        return {}  
 
     # Espera uma resposta do servidor contendo os dados do recurso
     try:
@@ -46,7 +45,7 @@ def get(sock: socket.socket, resource_id: Optional[int], ip_dest: str, port: int
         response = json.loads(response_data.decode("utf-8"))
         return response 
     except socket.timeout:
-        return None   # Retorna -1 em caso de timeout
+        return {}   
     
 def post(sock: socket.socket, resource_id: int, resource_body: str, ip_dest: str, port: int) -> int:
     """
@@ -58,8 +57,8 @@ def post(sock: socket.socket, resource_id: int, resource_body: str, ip_dest: str
         request_msg = json.dumps(header).encode("utf-8")
         sock.sendto(request_msg, (ip_dest, port))
     except socket.timeout:
-        return -1   # Retorna -1 em caso de timeout
-    return 0
+        return 0   # timeout
+    return 1
 
 def respond(sock: socket.socket, ip_dest: str, port: int, response_code: int, response: dict) -> int:
     """
@@ -73,8 +72,8 @@ def respond(sock: socket.socket, ip_dest: str, port: int, response_code: int, re
         request_msg = json.dumps(header).encode("utf-8")
         sock.sendto(request_msg, (ip_dest, port))
     except socket.timeout:
-        return -1   # Retorna -1 em caso de timeout
-    return 0
+        return 0   # timeout
+    return 1
 
 def build_header(
     operation: str,
@@ -88,19 +87,12 @@ def build_header(
     """
     body = {}
     if resource_id is not None:
-        body["id"] = resource_id
+        body["resource_id"] = resource_id
     if response_code is not None:
         body["response_code"] = response_code
     if content is not None:
         body["content"] = content
     if resource_body is not None:
-        body["resource_body"] = resource_body 
+        body["content"] = resource_body
 
     return {"operation": operation, "body": body}
-
-
-# def interpret_header(header: dict) -> None:
-#     """
-#     Interpreta o cabeçalho da mensagem.
-#     """
-#     return header.get("operation"), header.get("message_id"), header.get("body")

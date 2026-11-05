@@ -213,6 +213,8 @@ def process_server_message(message: str, address: tuple):
     return response
 
 
+# Encerramento de socket
+
 def process_client_message(message: str, address: tuple):
     """
     Processa mensagens recebidas de clientes.
@@ -224,28 +226,42 @@ def process_client_message(message: str, address: tuple):
         return
 
     operation = request.get("operation")
+    body = request.get("body", {})
     response = {}
 
-    if operation == "LIST":
-        films = state.get_films()
-        response = {"status": "OK", "films": films}
-        return response
+    if operation == "GET":
+        try:
+            resource_id = body.get("resource_id")
+            if resource_id is None:
+                films = state.get_films()
+                response = {"status": "OK", "films": films}
+                return response
 
-    if operation == "ADD_REVIEW":
-        film_id = request.get("film_id")
-        review = request.get("review")
+            film = state.get_film(resource_id)
+            if not film:
+                response = {"status": "ERROR", "message": f"Filme com ID {resource_id} não encontrado"}
+                return response
+
+            response = {"status": "OK", "film": film}
+            return response
+        except Exception as e:
+            debug_print(f"Erro ao processar GET: {e}")
+            response = {"status": "ERROR", "message": "Erro ao processar GET"}
+            return response
+
+    elif operation == "POST":
+        film_id = body.get("resource_id")
+        review = body.get("content")
         success = state.add_review(film_id, review)
         if not success:
             response = {"status": "ERROR", "message": f"Erro ao adicionar review ao filme {film_id}"}
             return response
-        
+
         response = {"status": "OK", "message": f"Review adicionada ao filme {film_id}"}
         return response
-    
+
     response = {"status": "ERROR", "message": "Operação desconhecida"}
     return response
-
-# Encerramento de socket
 
 def shutdown(sock: socket.socket, warn: bool = False) -> None:
     """
