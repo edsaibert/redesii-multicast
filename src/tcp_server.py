@@ -76,7 +76,13 @@ def start_tcp(
 ) -> None:
     """Inicia o servidor TCP."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((server_config["ip"], server_config["tcp_port"]))
+    
+    try:
+        sock.bind((server_config["ip"], server_config["tcp_port"]))
+    except:
+        state.debug_print("Não foi possível iniciar conexão obtendo automaticamente hostname, usando como fallback localhost.")
+        sock.bind((server_config["127.0.0.1"], server_config["tcp_port"]))
+
     sock.listen(5)
 
     state.debug_print(f"Servidor {get_server_id()}: servidor TCP iniciado")

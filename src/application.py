@@ -42,6 +42,9 @@ def _read_blocks(sock: socket.socket, buffer_size: int = 4096) -> bytes:
     return data.split(b"\n", 1)[0]
 
 def _read_udp_response(sock: socket.socket) -> dict:
+    """
+    Lê uma mensagem UDP
+    """
     response_data, _ = sock.recvfrom(4096)
     return json.loads(response_data.decode("utf-8"))
 
@@ -131,27 +134,6 @@ def heartbeat(sock: socket.socket, server_id: str) -> dict:
         if not response_data:
             return {"response": {"status": "ERROR", "message": "Resposta vazia"}}
         return json.loads(response_data.decode("utf-8"))
-    except socket.timeout:
-        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
-
-
-def health(sock: socket.socket, server_id: str) -> dict:
-    """
-    Verifica a saúde de um servidor através de um socket TCP conectado.
-    """
-    sock.settimeout(TIMEOUT_MESSAGE)
-    try:
-        header = build_header("HEALTH", resource_id=server_id)
-        request_msg = json.dumps(header).encode("utf-8")
-        sock.sendall(request_msg)
-
-        # Aguarda resposta do servidor
-        response_data = _read_blocks(sock)
-        if not response_data:
-            return {"response": {"status": "ERROR", "message": "Resposta vazia"}}
-
-        response = json.loads(response_data.decode("utf-8"))    
-        return response 
     except socket.timeout:
         return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
 
