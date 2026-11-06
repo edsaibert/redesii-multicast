@@ -5,7 +5,7 @@
 # ======================
 
 heartbeat_t = 1
-failure_t = 7
+failure_t = 3
 
 [multicast]
 # Configurações Gerais do Cluster

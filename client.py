@@ -44,7 +44,7 @@ def request_film(sock: socket.socket, film_id: int) -> None:
         print(response, end="\n\n")
         return 0
 
-    print(response["film"], end="\n\n")
+    print(response, end="\n\n")
     return 1
 
 

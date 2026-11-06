@@ -22,7 +22,15 @@ def _response(status: str, **data: object) -> dict:
     """
     Cria uma resposta padronizada para requisições.
     """
-    return {"response": {"status": status, **data}}
+    return {
+        "response": {
+            "status": status,
+            "server_id": state.get_server_id(),
+            "server_address": state.get_server_ip(),
+            "server_port": state.get_server_tcp_port(),
+            **data,
+        }
+    }
 
 
 def route(method: str, resource: str):
