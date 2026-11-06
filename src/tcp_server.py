@@ -1,3 +1,9 @@
+# ======================
+# Eduarda Saibert - 20232368
+# Eduardo Munaretto Majczak - 20242288
+# Modificado em 04/11/26
+# ======================
+
 import json
 import socket
 import threading
@@ -35,7 +41,8 @@ def connect_to_servers(target_host: str, target_port: int) -> socket.socket | No
     try:
         client.connect((target_host, target_port))
         return client
-    except OSError:
+    except Exception as error:
+        state.debug_print(f"Erro ao conectar ao servidor {target_host}: {error}")
         shutdown(client)
         return None
 
@@ -57,7 +64,7 @@ def handle_tcp_message(
             response = process_message(request)
             if response:
                 client.sendall((json.dumps(response) + "\n").encode("utf-8"))
-    except (ConnectionError, OSError, json.JSONDecodeError) as error:
+    except Exception as error:
         debug_print(f"Erro na conexão TCP com {address}: {error}")
     finally:
         shutdown(client)
@@ -84,11 +91,6 @@ def start_tcp(
 
 def heartbeat(servers_config: dict, time_sec: int) -> None:
     """Envia heartbeats para os outros servidores."""
-    request = {
-        "operation": "HEARTBEAT",
-        "server_id": str(get_server_id()),
-    }
-    request_msg = json.dumps(request).encode("utf-8")
     connections = {}
 
     while True:
@@ -112,7 +114,14 @@ def heartbeat(servers_config: dict, time_sec: int) -> None:
                 connections[peer_id] = sock
 
             try:
-                sock.sendall(request_msg)
+                response = application.heartbeat(sock, str(get_server_id()))
+                if response.get("response", {}).get("status") != "OK":
+                    state.debug_print(
+                        f"Heartbeat rejeitado pelo servidor {peer_id}: "
+                        f"{response.get('response', {}).get('message')}"
+                    )
+                    shutdown(sock)
+                    connections.pop(peer_id, None)
             except ConnectionError:
                 shutdown(sock)
                 connections.pop(peer_id, None)

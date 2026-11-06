@@ -1,3 +1,10 @@
+
+# ======================
+# Eduarda Saibert - 20232368
+# Eduardo Munaretto Majczak - 20242288
+# Modificado em 04/11/26
+# ======================
+
 import json
 import socket
 from collections.abc import Callable

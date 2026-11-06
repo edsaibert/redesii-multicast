@@ -1,5 +1,6 @@
 # ======================
 # Eduarda Saibert - 20232368
+# Eduardo Munaretto Majczak - 20242288
 # Modificado em 04/11/26
 # ======================
 
@@ -11,9 +12,11 @@ from typing import Optional
 
 TIMEOUT_MESSAGE = 5 # Tempo limite de espera para resposta do servidor em segundos
 
-# Header = {
-#    "operation": str,  # Tipo de operação (GET, POST, etc.)
-#    "body": Optional[str]  # Corpo da mensagem (opcional)
+# Request = {
+#    "method": str,  # Método da operação (GET, POST, etc.)
+#    "resource": str,  # Recurso solicitado
+#    "resource_id": Optional[int],  # Identificador do recurso
+#    "body": dict  # Corpo da mensagem
 # }
 
 # body = {
@@ -50,7 +53,7 @@ def get(sock: socket.socket, resource_id: Optional[int], ip_dest: str, port: int
     sock.settimeout(TIMEOUT_MESSAGE)
     try:
         # Envia requisição pedindo recurso ao processo
-        header = build_header("GET", resource_id=resource_id)
+        header = build_request("GET", "films", resource_id=resource_id)
         request_msg = json.dumps(header).encode("utf-8")
         sock.sendto(request_msg, (ip_dest, port))
 
@@ -72,7 +75,12 @@ def post(
     """
     sock.settimeout(TIMEOUT_MESSAGE)
     try:
-        header = build_header("POST", resource_id=resource_id, resource_body=resource_body)
+        header = build_request(
+            "POST",
+            "films",
+            resource_id=resource_id,
+            body={"content": resource_body},
+        )
         request_msg = json.dumps(header).encode("utf-8")
         sock.sendto(request_msg, (ip_dest, port))
         return _read_udp_response(sock)
@@ -90,10 +98,11 @@ def replicate_post(
     """
     sock.settimeout(TIMEOUT_MESSAGE)
     try:
-        header = build_header(
-            "REPLICATE_POST",
+        header = build_request(
+            "POST",
+            "replicate-post",
             resource_id=resource_id,
-            resource_body=resource_body,
+            body={"content": resource_body},
         )
         header["server_id"] = server_id
         request_msg = json.dumps(header).encode("utf-8")
@@ -108,6 +117,23 @@ def replicate_post(
 
     except socket.timeout:
         return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
+
+
+def heartbeat(sock: socket.socket, server_id: str) -> dict:
+    """Envia um heartbeat a um servidor conectado e aguarda sua resposta."""
+    sock.settimeout(TIMEOUT_MESSAGE)
+    try:
+        request = build_request("POST", "heartbeat", body={})
+        request["server_id"] = server_id
+        sock.sendall(json.dumps(request).encode("utf-8"))
+
+        response_data = _read_blocks(sock)
+        if not response_data:
+            return {"response": {"status": "ERROR", "message": "Resposta vazia"}}
+        return json.loads(response_data.decode("utf-8"))
+    except socket.timeout:
+        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
+
 
 def health(sock: socket.socket, server_id: str) -> dict:
     """
@@ -173,3 +199,20 @@ def build_header(
         body["content"] = resource_body
 
     return {"operation": operation, "body": body}
+
+
+def build_request(
+    method: str,
+    resource: str,
+    resource_id: Optional[int] = None,
+    body: Optional[dict] = None,
+) -> dict:
+    """Constrói uma requisição de cliente com o identificador separado."""
+    request = {
+        "method": method.upper(),
+        "resource": resource,
+        "body": body or {},
+    }
+    if resource_id is not None:
+        request["resource_id"] = resource_id
+    return request

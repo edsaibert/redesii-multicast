@@ -52,12 +52,12 @@ def add_review(sock: socket.socket, film_id: int, review: str) -> None:
     """
     Adiciona uma avaliação a um filme específico.
     """
-    flag = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
-    if flag.get("response", {}).get("status") != "OK":
+    res = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
+    if res.get("response", {}).get("status") != "OK":
         debug_print("Não foi possível adicionar a avaliação.")
         return 0
 
-    print("Avaliação adicionada com sucesso.")
+    print(res["response"], end="\n\n")
     return 1
 
 
