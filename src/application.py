@@ -7,6 +7,7 @@
 import json
 import socket
 from typing import Optional
+from enum import Enum
 
 # =====================
 
@@ -24,6 +25,11 @@ TIMEOUT_MESSAGE = 5 # Tempo limite de espera para resposta do servidor em segund
 #    "response_code": Optional[int],  # Código de resposta (opcional)
 #    "content": Optional[str]  # Conteúdo do item (opcional)
 # }
+
+class Status(Enum):
+    TIMEOUT_ERROR = '-1'
+    SERVER_ERROR = '0'
+    OK = '1'
 
 # ======================
 
@@ -63,7 +69,7 @@ def get(sock: socket.socket, resource_id: Optional[int], ip_dest: str, port: int
         # Aguarda resposta do servidor UDP
         return _read_udp_response(sock)
     except socket.timeout:
-        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
+        return {"response": {"status": Status.TIMEOUT_ERROR, "message": "Tempo limite excedido"}}
 
 
 def post(
@@ -88,7 +94,7 @@ def post(
         sock.sendto(request_msg, (ip_dest, port))
         return _read_udp_response(sock)
     except socket.timeout:
-        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
+        return {"response": {"status": Status.TIMEOUT_ERROR, "message": "Tempo limite excedido"}}
 
 def replicate_post(
     sock: socket.socket,
@@ -113,13 +119,13 @@ def replicate_post(
 
         response_data = _read_blocks(sock)
         if not response_data:
-            return {"response": {"status": "ERROR", "message": "Resposta vazia"}}
+            return {"response": {"status": Status.TIMEOUT_ERROR, "message": "Resposta vazia"}}
 
         response = json.loads(response_data.decode("utf-8"))    
         return response 
 
     except socket.timeout:
-        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
+        return {"response": {"status": Status.TIMEOUT_ERROR, "message": "Tempo limite excedido"}}
 
 
 def heartbeat(sock: socket.socket, server_id: str) -> dict:
@@ -132,10 +138,10 @@ def heartbeat(sock: socket.socket, server_id: str) -> dict:
 
         response_data = _read_blocks(sock)
         if not response_data:
-            return {"response": {"status": "ERROR", "message": "Resposta vazia"}}
+            return {"response": {"status": Status.TIMEOUT_ERROR, "message": "Resposta vazia"}}
         return json.loads(response_data.decode("utf-8"))
     except socket.timeout:
-        return {"response": {"status": "ERROR", "message": "Tempo limite excedido"}}
+        return {"response": {"status": Status.TIMEOUT_ERROR, "message": "Tempo limite excedido"}}
 
 # def respond(
 #     sock: socket.socket,
