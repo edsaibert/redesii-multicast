@@ -26,7 +26,7 @@ TIMEOUT_MESSAGE = 5 # Tempo limite de espera para resposta do servidor em segund
 #    "content": Optional[str]  # Conteúdo do item (opcional)
 # }
 
-class Status(Enum):
+class Status(str, Enum):
     TIMEOUT_ERROR = '-1'
     SERVER_ERROR = '0'
     OK = '1'
