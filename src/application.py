@@ -143,28 +143,28 @@ def heartbeat(sock: socket.socket, server_id: str) -> dict:
     except socket.timeout:
         return {"response": {"status": Status.TIMEOUT_ERROR, "message": "Tempo limite excedido"}}
 
-def respond(
-    sock: socket.socket,
-    ip_dest: str,
-    port: int,
-    response_code: int,
-    response: dict,
-) -> int:
-    """
-    Resposta a uma solicitação do tipo GET ou POST.
-    """
-    sock.settimeout(TIMEOUT_MESSAGE)
-    try:
-        header = build_header(
-            "RESPONSE",
-            response_code=response_code,
-            content={"response": response},
-        )
-        request_msg = json.dumps(header).encode("utf-8")
-        sock.sendto(request_msg, (ip_dest, port))
-    except socket.timeout:
-        return 0   # timeout
-    return 1
+# def respond(
+#     sock: socket.socket,
+#     ip_dest: str,
+#     port: int,
+#     response_code: int,
+#     response: dict,
+# ) -> int:
+#     """
+#     Resposta a uma solicitação do tipo GET ou POST.
+#     """
+#     sock.settimeout(TIMEOUT_MESSAGE)
+#     try:
+#         header = build_header(
+#             "RESPONSE",
+#             response_code=response_code,
+#             content={"response": response},
+#         )
+#         request_msg = json.dumps(header).encode("utf-8")
+#         sock.sendto(request_msg, (ip_dest, port))
+#     except socket.timeout:
+#         return 0   # timeout
+#     return 1
 
 def build_header(
     operation: str,

@@ -16,30 +16,53 @@ MULTICAST_PORT = None
 
 # ======================
 
+def retry(func):
+	"""
+	Decorator que realiza o retry das funções de teste.
+	"""
+	def wrapper_retry(*args, **kwargs):
+		if (func(*args, **kwargs) == -1):
+			debug_print("Tentando novamente...")
+			res = func(*args, **kwargs)
+			return 0
+		return 1
+	return wrapper_retry
+
+
+@retry
 def request_films(sock: socket.socket) -> None:
     """
     Solicita a lista de filmes ao servidor.
     """
     res = application.get(sock, None, MULTICAST_GROUP, MULTICAST_PORT)
+    debug_print(f"Recebido: {res}")
+
     if (not res):
         debug_print("Não foi possível obter resposta a requisição.")
+        return -1
+
+    if res.get("response", {}).get("status") != "OK":
+        debug_print("Resposta de ERRO do servidor.")
         return 0
 
     print(res["response"], end="\n\n")
     return 1
 
 
+@retry
 def request_film(sock: socket.socket, film_id: int) -> None:
     """
     Solicita detalhes de um filme específico ao servidor.
     """
     res = application.get(sock, film_id, MULTICAST_GROUP, MULTICAST_PORT)
+    debug_print(f"Recebido: {res}")
     if (not res):
         debug_print("Não foi possível obter resposta a requisição.")
-        return 0
+        return -1
 
     response = res["response"]
-    if "film" not in response:
+    if response.get("status") != "OK":
+        debug_print("Resposta de ERRO do servidor.")
         print(response, end="\n\n")
         return 0
 
@@ -47,13 +70,18 @@ def request_film(sock: socket.socket, film_id: int) -> None:
     return 1
 
 
+@retry
 def add_review(sock: socket.socket, film_id: int, review: str) -> None:
     """
     Adiciona uma avaliação a um filme específico.
     """
     res = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
+    debug_print(f"Recebido: {res}")
+    if (not res || res.get("response", {}).get("status") == '-1'):
+        return -1
+
     if res.get("response", {}).get("status") != "OK":
-        debug_print("Não foi possível adicionar a avaliação.")
+        debug_print("Resposta de ERRO do servidor.")
         return 0
 
     print(res["response"], end="\n\n")
