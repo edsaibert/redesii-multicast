@@ -5,7 +5,7 @@
 # ======================
 
 import threading
-from helpers import configure_debug, debug_print
+from src.helpers import configure_debug, debug_print
 
 # ======================
 # Constantes
@@ -110,6 +110,17 @@ def remove_peer_server(server_id: str) -> None:
 def get_server_id() -> str:
     with lock:
         return SERVER_ID
+
+
+def get_server_ip() -> str:
+    with lock:
+        return SERVER_IP
+
+
+def get_server_tcp_port() -> int:
+    with lock:
+        return SERVER_TCP_PORT
+
 
 def get_failure_t() -> int:
     with lock:

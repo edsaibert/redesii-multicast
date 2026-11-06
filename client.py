@@ -9,8 +9,8 @@ import os
 import time
 import socket
 import argparse
-import application
-from helpers import configure_debug, read_config, debug_print
+import src.application as application
+from src.helpers import configure_debug, read_config, debug_print
 
 MULTICAST_GROUP = None
 MULTICAST_PORT = None
@@ -26,7 +26,7 @@ def request_films(sock: socket.socket) -> None:
         debug_print("Não foi possível obter resposta a requisição.")
         return 0
 
-    print(res, end="\n\n")
+    print(res["response"], end="\n\n")
     return 1
 
 
@@ -39,11 +39,12 @@ def request_film(sock: socket.socket, film_id: int) -> None:
         debug_print("Não foi possível obter resposta a requisição.")
         return 0
 
-    if "film" not in res:
-        print(res, end="\n\n")
+    response = res["response"]
+    if "film" not in response:
+        print(response, end="\n\n")
         return 0
 
-    print(res["film"], end="\n\n")
+    print(response, end="\n\n")
     return 1
 
 
@@ -51,12 +52,12 @@ def add_review(sock: socket.socket, film_id: int, review: str) -> None:
     """
     Adiciona uma avaliação a um filme específico.
     """
-    flag = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
-    if (not flag):
+    res = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
+    if res.get("response", {}).get("status") != "OK":
         debug_print("Não foi possível adicionar a avaliação.")
         return 0
 
-    print("Avaliação adicionada com sucesso.")
+    print(res["response"], end="\n\n")
     return 1
 
 
