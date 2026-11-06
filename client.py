@@ -41,7 +41,7 @@ def request_films(sock: socket.socket) -> None:
         debug_print("Não foi possível obter resposta a requisição.")
         return -1
 
-    if res.get("response", {}).get("status") != "OK":
+    if res.get("response", {}).get("status") != application.Status.OK:
         debug_print("Resposta de ERRO do servidor.")
         return 0
 
@@ -61,7 +61,7 @@ def request_film(sock: socket.socket, film_id: int) -> None:
         return -1
 
     response = res["response"]
-    if response.get("status") != "OK":
+    if response.get("status") != application.Status.OK:
         debug_print("Resposta de ERRO do servidor.")
         print(response, end="\n\n")
         return 0
@@ -77,10 +77,10 @@ def add_review(sock: socket.socket, film_id: int, review: str) -> None:
     """
     res = application.post(sock, film_id, review, MULTICAST_GROUP, MULTICAST_PORT)
     debug_print(f"Recebido: {res}")
-    if (not res || res.get("response", {}).get("status") == '-1'):
+    if (not res or res.get("response", {}).get("status") == application.Status.TIMEOUT_ERROR):
         return -1
 
-    if res.get("response", {}).get("status") != "OK":
+    if res.get("response", {}).get("status") != application.Status.OK:
         debug_print("Resposta de ERRO do servidor.")
         return 0
 
