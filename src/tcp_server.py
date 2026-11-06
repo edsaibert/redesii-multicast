@@ -81,7 +81,7 @@ def start_tcp(
         sock.bind((server_config["ip"], server_config["tcp_port"]))
     except:
         state.debug_print("Não foi possível iniciar conexão obtendo automaticamente hostname, usando como fallback localhost.")
-        sock.bind((server_config["127.0.0.1"], server_config["tcp_port"]))
+        sock.bind(("127.0.0.1", server_config["tcp_port"]))
 
     sock.listen(5)
 

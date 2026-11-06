@@ -103,7 +103,8 @@ def add_review(request: dict) -> dict:
 @post("replicate-post")
 def replicate_post(request: dict) -> dict:
     if str(request.get("server_id")) != str(get_leader()):
-        return _response("ERROR", message="Apenas o líder pode replicar alterações")
+        state.debug_print("Apenas o líder pode replicar alterações")
+        return {}
 
     resource_id = request.get("resource_id")
     review = request.get("body", {}).get("content")
