@@ -13,6 +13,7 @@ import src.state as state
 from src.helpers import configure_debug, debug_print, read_config
 from src import tcp_server, udp_server
 from src.state import get_leader
+from src.application import Status
 
 failure_t = 0
 routes: dict[tuple[str, str], Callable[[dict], dict]] = {}
@@ -62,15 +63,15 @@ def post(resource: str):
 def get_films(request: dict) -> dict:
     resource_id = request.get("resource_id")
     if resource_id is None:
-        return _response("OK", films=state.get_films())
+        return _response(Status.OK, films=state.get_films())
 
     film = state.get_film(resource_id)
     if not film:
         return _response(
-            "ERROR",
+            Status.SERVER_ERROR,
             message=f"Filme com ID {resource_id} não encontrado",
         )
-    return _response("OK", film=film)
+    return _response(Status.OK, film=film)
 
 
 @post("films")
@@ -81,44 +82,44 @@ def add_review(request: dict) -> dict:
 
     if not state.get_film(resource_id):
         return _response(
-            "ERROR",
+            Status.SERVER_ERROR,
             message=f"Filme com ID {resource_id} não encontrado",
         )
 
     replication_body = {"resource_id": resource_id, "content": review}
     if not tcp_server.replicate_post_to_peers(replication_body):
         return _response(
-            "ERROR",
+            Status.SERVER_ERROR,
             message="Falha ao replicar alteração nos servidores ativos",
         )
 
     if not state.add_review(resource_id, review):
         return _response(
-            "ERROR",
+            Status.SERVER_ERROR,
             message=f"Erro ao adicionar review ao filme {resource_id}",
         )
-    return _response("OK", message=f"Review adicionada ao filme {resource_id}")
+    return _response(Status.OK, message=f"Review adicionada ao filme {resource_id}")
 
 
 @post("replicate-post")
 def replicate_post(request: dict) -> dict:
     if str(request.get("server_id")) != str(get_leader()):
-        return _response("ERROR", message="Apenas o líder pode replicar alterações")
+        return _response(Status.SERVER_ERROR, message="Apenas o líder pode replicar alterações")
 
     resource_id = request.get("resource_id")
     review = request.get("body", {}).get("content")
     if not state.add_review(resource_id, review):
         return _response(
-            "ERROR",
+            Status.SERVER_ERROR,
             message=f"Erro ao adicionar review ao filme {resource_id}",
         )
-    return _response("OK", message=f"Review adicionada ao filme {resource_id}")
+    return _response(Status.OK, message=f"Review adicionada ao filme {resource_id}")
 
 
 @post("heartbeat")
 def heartbeat(request: dict) -> dict:
     tcp_server.process_heartbeat(request.get("server_id"), failure_t)
-    return _response("OK")
+    return _response(Status.OK)
 
 
 def process_server_message(message: dict) -> dict:
@@ -128,7 +129,7 @@ def process_server_message(message: dict) -> dict:
     handler = routes.get((method, resource))
     if handler is None:
         return _response(
-            "ERROR",
+            Status.SERVER_ERROR,
             message=f"Recurso não encontrado: {method} {resource}",
         )
 
@@ -136,7 +137,7 @@ def process_server_message(message: dict) -> dict:
         return handler(message)
     except Exception as error:
         debug_print(f"Erro ao processar {method} {resource}: {error}")
-        return _response("ERROR", message="Erro interno ao processar requisição")
+        return _response(Status.SERVER_ERROR, message="Erro interno ao processar requisição")
         
 
 def process_client_message(message: str, address: tuple) -> dict:
@@ -152,7 +153,7 @@ def process_client_message(message: str, address: tuple) -> dict:
     handler = routes.get((method, resource))
     if handler is None:
         return _response(
-            "ERROR",
+            Status.SERVER_ERROR,
             message=f"Recurso não encontrado: {method} {resource}",
         )
 
@@ -160,7 +161,7 @@ def process_client_message(message: str, address: tuple) -> dict:
         return handler(request)
     except Exception as error:
         debug_print(f"Erro ao processar {method} {resource}: {error}")
-        return _response("ERROR", message="Erro interno ao processar requisição")
+        return _response(Status.SERVER_ERROR, message="Erro interno ao processar requisição")
 
 
 def main() -> None:

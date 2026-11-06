@@ -121,7 +121,7 @@ def heartbeat(servers_config: dict, time_sec: int) -> None:
 
             try:
                 response = application.heartbeat(sock, str(get_server_id()))
-                if response.get("response", {}).get("status") != "OK":
+                if response.get("response", {}).get("status") != application.Status.OK:
                     state.debug_print(
                         f"Heartbeat rejeitado pelo servidor {peer_id}: "
                         f"{response.get('response', {}).get('message')}"
@@ -201,7 +201,7 @@ def replicate_post_to_peers(body: dict) -> bool:
             )
             shutdown(sock)
             response_body = response.get("response", {})
-            if response_body.get("status") != "OK":
+            if response_body.get("status") != application.Status.OK:
                 state.debug_print(
                     f"Falha ao replicar alteração no servidor {peer_id}: "
                     f"{response_body.get('message')}"

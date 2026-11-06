@@ -1,4 +1,3 @@
-
 # ======================
 # Eduarda Saibert - 20232368
 # Eduardo Munaretto Majczak - 20242288
