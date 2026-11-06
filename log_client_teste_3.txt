@@ -1,0 +1,16 @@
+[CLIENT] [2026-11-06 19:04:30] Recebido: {'response': {'status': '1', 'server_id': '1', 'server_address': '10.254.224.57', 'server_port': 5001, 'films': [{'id': 1, 'title': 'Devoradores de Estrelas', 'year': None, 'genre': None, 'reviews': []}, {'id': 2, 'title': 'Resident Evil', 'year': None, 'genre': None, 'reviews': []}, {'id': 3, 'title': 'Blade Runner', 'year': None, 'genre': None, 'reviews': []}, {'id': 4, 'title': 'Interestelar', 'year': None, 'genre': None, 'reviews': []}]}}
+{'status': '1', 'server_id': '1', 'server_address': '10.254.224.57', 'server_port': 5001, 'films': [{'id': 1, 'title': 'Devoradores de Estrelas', 'year': None, 'genre': None, 'reviews': []}, {'id': 2, 'title': 'Resident Evil', 'year': None, 'genre': None, 'reviews': []}, {'id': 3, 'title': 'Blade Runner', 'year': None, 'genre': None, 'reviews': []}, {'id': 4, 'title': 'Interestelar', 'year': None, 'genre': None, 'reviews': []}]}
+
+[CLIENT] [2026-11-06 19:04:35] Recebido: {'response': {'status': '1', 'server_id': '1', 'server_address': '10.254.224.57', 'server_port': 5001, 'film': {'id': 1, 'title': 'Devoradores de Estrelas', 'year': None, 'genre': None, 'reviews': []}}}
+{'status': '1', 'server_id': '1', 'server_address': '10.254.224.57', 'server_port': 5001, 'film': {'id': 1, 'title': 'Devoradores de Estrelas', 'year': None, 'genre': None, 'reviews': []}}
+
+[CLIENT] [2026-11-06 19:04:45] Recebido: {'response': {'status': <Status.TIMEOUT_ERROR: '-1'>, 'message': 'Tempo limite excedido'}}
+[CLIENT] [2026-11-06 19:04:45] Não foi possível obter resposta a requisição.
+[CLIENT] [2026-11-06 19:04:45] Tentando novamente...
+[CLIENT] [2026-11-06 19:04:45] Recebido: {'response': {'status': '0', 'server_id': '2', 'server_address': '10.254.224.58', 'server_port': 5002, 'message': 'Filme com ID -1 não encontrado'}}
+[CLIENT] [2026-11-06 19:04:45] Resposta de ERRO do servidor.
+{'status': '0', 'server_id': '2', 'server_address': '10.254.224.58', 'server_port': 5002, 'message': 'Filme com ID -1 não encontrado'}
+
+[CLIENT] [2026-11-06 19:04:50] Recebido: {'response': {'status': '1', 'server_id': '2', 'server_address': '10.254.224.58', 'server_port': 5002, 'message': 'Review adicionada ao filme 1'}}
+{'status': '1', 'server_id': '2', 'server_address': '10.254.224.58', 'server_port': 5002, 'message': 'Review adicionada ao filme 1'}
+

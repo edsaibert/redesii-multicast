@@ -56,7 +56,7 @@ def request_film(sock: socket.socket, film_id: int) -> None:
     """
     res = application.get(sock, film_id, MULTICAST_GROUP, MULTICAST_PORT)
     debug_print(f"Recebido: {res}")
-    if (not res):
+    if (not res or res.get("response", {}).get("status") == application.Status.TIMEOUT_ERROR):
         debug_print("Não foi possível obter resposta a requisição.")
         return -1
 
