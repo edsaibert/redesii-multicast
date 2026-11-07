@@ -1,0 +1,54 @@
+[SERVER: 2] [2026-11-06 22:06:46] Estado inicializado
+[SERVER: 2] [2026-11-06 22:06:46] Servidor 2: servidor TCP iniciado
+[SERVER: 2] [2026-11-06 22:06:48] Processando mensagem do servidor ('10.254.224.57', 40210): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '1'}
+[SERVER: 2] [2026-11-06 22:06:48] Processando Heartbeat do servidor de id 1
+[SERVER: 2] [2026-11-06 22:06:48] Iniciando conexão com servidor 10.254.224.57: porta 5001
+[SERVER: 2] [2026-11-06 22:06:48] Iniciando conexão com servidor 10.254.224.59: porta 5003
+[SERVER: 2] [2026-11-06 22:06:48] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:06:48] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:06:50] Processando mensagem do servidor ('10.254.224.57', 40210): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '1'}
+[SERVER: 2] [2026-11-06 22:06:50] Processando Heartbeat do servidor de id 1
+[SERVER: 2] [2026-11-06 22:06:50] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:06:50] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:06:52] Processando mensagem do servidor ('10.254.224.57', 40210): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '1'}
+[SERVER: 2] [2026-11-06 22:06:52] Processando Heartbeat do servidor de id 1
+[SERVER: 2] [2026-11-06 22:06:52] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:06:52] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:06:54] Processando mensagem do servidor ('10.254.224.57', 40210): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '1'}
+[SERVER: 2] [2026-11-06 22:06:54] Processando Heartbeat do servidor de id 1
+[SERVER: 2] [2026-11-06 22:06:54] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:06:54] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:06:56] Processando mensagem do servidor ('10.254.224.57', 40210): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '1'}
+[SERVER: 2] [2026-11-06 22:06:56] Processando Heartbeat do servidor de id 1
+[SERVER: 2] [2026-11-06 22:06:56] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:06:56] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:06:58] Processando mensagem do servidor ('10.254.224.57', 40210): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '1'}
+[SERVER: 2] [2026-11-06 22:06:58] Processando Heartbeat do servidor de id 1
+[SERVER: 2] [2026-11-06 22:06:58] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:06:58] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:06:59] Mensagem recebida de ('10.254.224.56', 45313): {"method": "GET", "resource": "films", "body": {}}
+[SERVER: 2] [2026-11-06 22:06:59] Servidor não é líder. Requisição recebida de ('10.254.224.56', 45313)
+[SERVER: 2] [2026-11-06 22:06:59] Processando mensagem do cliente ('10.254.224.56', 45313): {'method': 'GET', 'resource': 'films', 'body': {}}, resposta: {}
+[SERVER: 2] [2026-11-06 22:07:00] Processando mensagem do servidor ('10.254.224.57', 40210): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '1'}
+[SERVER: 2] [2026-11-06 22:07:00] Processando Heartbeat do servidor de id 1
+[SERVER: 2] [2026-11-06 22:07:00] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:07:00] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:07:02] Heartbeat rejeitado pelo servidor 1: Resposta vazia
+[SERVER: 2] [2026-11-06 22:07:02] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:07:02] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:07:04] Mensagem recebida de ('10.254.224.56', 45313): {"method": "GET", "resource": "films", "body": {}, "resource_id": 1}
+[SERVER: 2] [2026-11-06 22:07:04] Servidor não é líder. Requisição recebida de ('10.254.224.56', 45313)
+[SERVER: 2] [2026-11-06 22:07:04] Processando mensagem do cliente ('10.254.224.56', 45313): {'method': 'GET', 'resource': 'films', 'body': {}, 'resource_id': 1}, resposta: {}
+[SERVER: 2] [2026-11-06 22:07:04] Servidor de id 1 irresponsivo, removendo ele da lista de peers
+[SERVER: 2] [2026-11-06 22:07:04] Elegendo como líder o servidor de id 2
+[SERVER: 2] [2026-11-06 22:07:04] Líder atualizado para: 2
+[SERVER: 2] [2026-11-06 22:07:05] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:07:05] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:07:07] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:07:07] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:07:09] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:07:09] Processando Heartbeat do servidor de id 3
+[SERVER: 2] [2026-11-06 22:07:09] Mensagem recebida de ('10.254.224.56', 45313): {"method": "GET", "resource": "films", "body": {}, "resource_id": 1}
+[SERVER: 2] [2026-11-06 22:07:09] Processando mensagem do cliente ('10.254.224.56', 45313): {'method': 'GET', 'resource': 'films', 'body': {}, 'resource_id': 1}, resposta: {'response': {'status': <Status.OK: '1'>, 'server_id': '2', 'server_address': '10.254.224.58', 'server_port': 5002, 'film': {'id': 1, 'title': 'Devoradores de Estrelas', 'year': None, 'genre': None, 'reviews': []}}}
+[SERVER: 2] [2026-11-06 22:07:11] Processando mensagem do servidor ('10.254.224.59', 45860): {'method': 'POST', 'resource': 'heartbeat', 'body': {}, 'server_id': '3'}
+[SERVER: 2] [2026-11-06 22:07:11] Processando Heartbeat do servidor de id 3
